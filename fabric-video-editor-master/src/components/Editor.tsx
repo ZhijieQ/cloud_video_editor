@@ -66,7 +66,7 @@ export const Editor = observer(() => {
         <TimeLine />
       </div>
       <div className="col-span-4 text-right px-2 text-[0.5em] bg-black text-white">
-        Crafted By Amit Digga
+        Credits to Amit Digga
       </div>
     </div>
   );
