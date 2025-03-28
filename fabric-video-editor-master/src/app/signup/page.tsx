@@ -47,7 +47,7 @@ export default function Signup() {
   };
 
   return (
-    <main className="flex min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+    <main className="flex min-h-screen bg-gradient-to-b from-black to-gray-900">
       {/* Left section - Logo and Banner */}
       <div className="hidden md:flex md:w-1/2 flex-col items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-blue-500/40 to-purple-600/40 z-0"></div>

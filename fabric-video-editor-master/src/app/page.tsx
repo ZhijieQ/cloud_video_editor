@@ -3,8 +3,8 @@ import Image from "next/image";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-      <header className="w-full py-6 px-8 flex justify-between items-center">
+    <main className="flex min-h-screen flex-col text-white">
+      <header className="w-full py-6 px-8 flex justify-between items-center bg-black">
         <div className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
           Cloud Video Editor
         </div>
@@ -24,14 +24,14 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-8 md:px-16 py-10 gap-12">
+      <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-8 md:px-16 py-10 gap-12 bg-gradient-to-b from-black to-gray-900">
         <div className="flex-1 max-w-2xl">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            Create Professional Videos in Your Browser
+            The live share video editor
           </h1>
           <p className="text-gray-300 mb-8 text-lg">
-            A powerful web-based video editor with animations, effects, and timeline functionality.
-            Edit your videos anywhere, anytime - no installation required.
+            A colaborative web-based video editor.
+            Edit your videos anywhere, anytime wtih others.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4">
@@ -55,7 +55,7 @@ export default function Home() {
             src="https://images.unsplash.com/photo-1528109966604-5a6a4a964e8d?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" 
             alt="Video Editing" 
             fill 
-            className="object-cover"
+            className="object-cover rounded-3xl"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent flex items-end p-6">
             <div className="text-white">
@@ -65,10 +65,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      <footer className="w-full py-4 text-center text-gray-400 text-sm">
-        <p>Cloud Video Editor</p>
-      </footer>
     </main>
   );
 }
