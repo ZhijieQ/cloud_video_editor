@@ -22,6 +22,13 @@ export const EditorWithStore = () => {
 
 export const Editor = observer(() => {
   const store = React.useContext(StoreContext);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const usersConected = [
+    {nombre: "Zhijie", foto: ""},
+    {nombre: "Don", foto: ""},
+    {nombre: "Ander", foto: ""},
+    {nombre: "Martin", foto: ""},
+  ]
 
   useEffect(() => {
     const canvas = new fabric.Canvas("canvas", {
@@ -48,21 +55,50 @@ export const Editor = observer(() => {
     });
   }, []);
   return (
-    <div className="grid grid-rows-[500px_1fr_20px] grid-cols-[72px_300px_1fr_250px] h-[100svh]">
+    <div className="grid grid-rows-[60px_500px_1fr_20px] grid-cols-[72px_300px_1fr_250px] h-[100svh]">
 
-      <div className="tile row-span-2 flex flex-col">
+      <div className="col-span-4 bg-black px-10 py-2 flex justify-end items-center gap-x-32">
+        
+        { isAuthenticated ? (
+          <>
+          <div className="relative flex items-center">
+            <p className="text-white flex items-center gap-x-4 mr-5">
+              Live Users
+              <span className="h-3 w-3 bg-green-500 rounded-full animate-pulse mr-2" />
+            </p>
+            { usersConected.map((user, index) => (
+                <img className={`h-10 w-10 rounded-full bg-gray-400 -ml-2 hover:scale-110 ring-2 
+                            ${index % 4 === 0 ? 'ring-red-500' : 
+                              index % 4 === 1 ? 'ring-blue-500' : 
+                              index % 4 === 2 ? 'ring-green-500' : 
+                              'ring-yellow-500'}`}/>
+                
+              ))
+            }
+          </div>
+          <button className="h-10 w-10 rounded-full bg-gray-200" onClick={()=>setIsAuthenticated(false)}/>
+          </>
+        ):(
+          <button className="text-white font-normal" onClick={()=>setIsAuthenticated(true)}>
+            Iniciar sesión
+          </button>
+        )
+        }
+       
+      </div>
+      <div className="tile row-span-2 flex flex-col row-start-2">
         <Menu />
       </div>
-      <div className="row-span-2 flex flex-col overflow-scroll">
+      <div className="row-span-2 flex flex-col overflow-scroll row-start-2">
         <Resources />
       </div>
       <div id="grid-canvas-container" className="col-start-3 bg-slate-100 flex justify-center items-center">
         <canvas id="canvas" className="h-[500px] w-[800px] row" />
       </div>
-      <div className="col-start-4 row-start-1">
+      <div className="col-start-4 row-start-2">
         <ElementsPanel />
       </div>
-      <div className="col-start-3 row-start-2 col-span-2 relative px-[10px] py-[4px] overflow-scroll">
+      <div className="col-start-3 row-start-3 col-span-2 relative px-[10px] py-[4px] overflow-scroll">
         <TimeLine />
       </div>
       <div className="col-span-4 text-right px-2 text-[0.5em] bg-black text-white">
