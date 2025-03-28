@@ -57,8 +57,10 @@ export const Editor = observer(() => {
   return (
     <div className="grid grid-rows-[60px_500px_1fr_20px] grid-cols-[72px_300px_1fr_250px] h-[100svh]">
 
-      <div className="col-span-4 bg-black px-10 py-2 flex justify-end items-center gap-x-32">
-        
+      <div className="relative col-span-4 bg-black px-10 py-2 flex justify-end items-center gap-x-32">
+        <div className="absolute left-0 ml-10 text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+          Cloud Video Editor
+        </div>
         { isAuthenticated ? (
           <>
           <div className="relative flex items-center">
@@ -67,7 +69,7 @@ export const Editor = observer(() => {
               <span className="h-3 w-3 bg-green-500 rounded-full animate-pulse mr-2" />
             </p>
             { usersConected.map((user, index) => (
-                <img className={`h-10 w-10 rounded-full bg-gray-400 -ml-2 hover:scale-110 ring-2 
+                <img className={`h-10 w-10 rounded-full bg-gray-400 -ml-2 hover:scale-110 ring-1 
                             ${index % 4 === 0 ? 'ring-red-500' : 
                               index % 4 === 1 ? 'ring-blue-500' : 
                               index % 4 === 2 ? 'ring-green-500' : 
@@ -89,15 +91,18 @@ export const Editor = observer(() => {
       <div className="tile row-span-2 flex flex-col row-start-2">
         <Menu />
       </div>
-      <div className="row-span-2 flex flex-col overflow-scroll row-start-2">
+      <div className="row-span-2 flex flex-col overflow-scroll row-start-2 bg-black" style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none"
+        }}>
         <Resources />
       </div>
       <div id="grid-canvas-container" className="col-start-3 bg-slate-100 flex justify-center items-center">
         <canvas id="canvas" className="h-[500px] w-[800px] row" />
       </div>
-      <div className="col-start-4 row-start-2">
+      {/* <div className="col-start-4 row-start-2">
         <ElementsPanel />
-      </div>
+      </div> */}
       <div className="col-start-3 row-start-3 col-span-2 relative px-[10px] py-[4px] overflow-scroll">
         <TimeLine />
       </div>

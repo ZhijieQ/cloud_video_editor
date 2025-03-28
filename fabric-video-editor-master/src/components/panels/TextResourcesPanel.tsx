@@ -58,7 +58,7 @@ const TEXT_RESOURCES = [
 
 export const TextResourcesPanel = observer(() => {
   return (
-    <div className="bg-slate-200 h-full">
+      <>
       <div className="text-sm px-[16px] pt-[16px] pb-[8px] font-semibold text-black">
         Text
       </div>
@@ -79,6 +79,6 @@ export const TextResourcesPanel = observer(() => {
           );
         })}
       </ul>
-    </div>
+      </>
   );
 });

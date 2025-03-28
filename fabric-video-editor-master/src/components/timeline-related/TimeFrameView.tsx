@@ -20,7 +20,7 @@ export const TimeFrameView = observer((props: { element: EditorElement }) => {
       }}
       key={element.id}
       className={`relative width-full h-[25px] my-2 ${
-        isSelected ? "border-2 border-indigo-600 bg-slate-200" : ""
+        isSelected ? "border-2 border-gray-600 bg-gray-200" : ""
       }`}
     >
       <DragableView
@@ -38,7 +38,6 @@ export const TimeFrameView = observer((props: { element: EditorElement }) => {
           className={`bg-white border-2 border-blue-400 w-[10px] h-[10px] mt-[calc(25px/2)] translate-y-[-50%] transform translate-x-[-50%] ${disabledCursor}`}
         ></div>
       </DragableView>
-
       <DragableView
         className={disabled ? "cursor-no-drop" : "cursor-col-resize"}
         value={element.timeFrame.start}
