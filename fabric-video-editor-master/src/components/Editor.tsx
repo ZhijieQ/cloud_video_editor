@@ -22,7 +22,7 @@ export const EditorWithStore = () => {
 
 export const Editor = observer(() => {
   const store = React.useContext(StoreContext);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const usersConected = [
     {nombre: "Zhijie", foto: ""},
     {nombre: "Don", foto: ""},
@@ -100,9 +100,9 @@ export const Editor = observer(() => {
       <div id="grid-canvas-container" className="col-start-3 bg-slate-100 flex justify-center items-center">
         <canvas id="canvas" className="h-[500px] w-[800px] row" />
       </div>
-      {/* <div className="col-start-4 row-start-2">
+      <div className="col-start-4 row-start-2">
         <ElementsPanel />
-      </div> */}
+      </div>
       <div className="col-start-3 row-start-3 col-span-2 relative px-[10px] py-[4px] overflow-scroll">
         <TimeLine />
       </div>
