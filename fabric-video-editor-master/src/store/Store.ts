@@ -6,6 +6,8 @@ import { MenuOption, EditorElement, Animation, TimeFrame, VideoEditorElement, Au
 import { FabricUitls } from '@/utils/fabric-utils';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
+import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { getFilesFromFolder } from "@/utils/fileUpload";
 
 export class Store {
   canvas: fabric.Canvas | null
@@ -380,6 +382,7 @@ export class Store {
       });
     }
   }
+
   updateTimeTo(newTime: number) {
     this.setCurrentTimeInMs(newTime);
     this.animationTimeLine.seek(newTime);
@@ -442,6 +445,7 @@ export class Store {
   }
 
   addImage(index: number) {
+    debugger
     const imageElement = document.getElementById(`image-${index}`)
     if (!isHtmlImageElement(imageElement)) {
       return;
@@ -510,6 +514,7 @@ export class Store {
     );
 
   }
+
   addText(options: {
     text: string,
     fontSize: number,
@@ -563,6 +568,7 @@ export class Store {
         }
       })
   }
+
   updateAudioElements() {
     this.editorElements.filter(
       (element): element is AudioEditorElement =>
@@ -900,7 +906,18 @@ export class Store {
     this.updateTimeTo(this.currentTimeInMs);
     store.canvas.renderAll();
   }
-
+  
+  async sync(){
+    getFilesFromFolder('videoEditor/images')
+      .then((urls) => {
+        urls.forEach((url) => {
+          this.images.push(url);
+        });
+      })
+      .catch((error) => {
+        console.error("Error fetching files:", error);
+      });
+  }
 }
 
 

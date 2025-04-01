@@ -13,6 +13,7 @@ import "@/utils/fabric-utils";
 
 export const EditorWithStore = () => {
   const [store] = useState(new Store());
+  store.sync()
   return (
     <StoreContext.Provider value={store}>
       <Editor></Editor>
