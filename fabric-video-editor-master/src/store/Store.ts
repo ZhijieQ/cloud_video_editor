@@ -6,7 +6,7 @@ import { MenuOption, EditorElement, Animation, TimeFrame, VideoEditorElement, Au
 import { FabricUitls } from '@/utils/fabric-utils';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
-import { getFirestore, collection, getDocs, addDoc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { getFilesFromFolder } from "@/utils/fileUpload";
 
 export class Store {
@@ -339,7 +339,8 @@ export class Store {
       const db = getFirestore();
       const videoEditorCollection = collection(db, "videoEditor");
       try {
-        await addDoc(videoEditorCollection, editorElement);
+        const docRef = await addDoc(videoEditorCollection, editorElement);
+        editorElement.uid = docRef.id;
       } catch (error) {
         alert("Error syncronizing data ");
         return;
@@ -351,11 +352,34 @@ export class Store {
     this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
   }
 
-  removeEditorElement(id: string) {
-    this.setEditorElements(this.editorElements.filter(
-      (editorElement) => editorElement.id !== id
-    ));
-    this.refreshElements();
+  async removeEditorElement(id: string | undefined) {
+    if(id === undefined) {
+      alert("Element ID is undefined");
+      return;
+    }
+
+    const elementToRemove = this.editorElements.find(
+      (editorElement) => editorElement.id === id
+    );
+
+    if (!elementToRemove || !elementToRemove.uid) {
+      alert("Element not found");
+      return;
+  }
+
+    const db = getFirestore();
+    const docRef = doc(db, "videoEditor", elementToRemove.uid);
+    try {
+      await deleteDoc(docRef);
+
+      this.setEditorElements(this.editorElements.filter(
+        (editorElement) => editorElement.id !== id
+      ));
+      this.refreshElements();
+    } catch (error) {
+      console.error("Error deleting document from Firebase:", error);
+      return;
+    }
   }
 
   setMaxTime(maxTime: number) {
@@ -431,6 +455,7 @@ export class Store {
     this.addEditorElement(
       {
         id,
+        uid: null,
         name: `Media(video) ${index + 1}`,
         type: "video",
         order: this.order++,
@@ -469,6 +494,7 @@ export class Store {
     const id = getUid();
     this.addEditorElement({
       id,
+      uid: null,
       name: `Media(image) ${index + 1}`,
       type: "image",
       order: this.order++,
@@ -507,6 +533,7 @@ export class Store {
     this.addEditorElement(
       {
         id,
+        uid: null,
         name: `Media(audio) ${index + 1}`,
         type: "audio",
         order: this.order++,
@@ -544,6 +571,7 @@ export class Store {
     this.addEditorElement(
       {
         id,
+        uid: null,
         name: `Text ${index + 1}`,
         type: "text",
         order: this.order++,
@@ -946,7 +974,8 @@ export class Store {
     querySnapshot.forEach((doc) => {
       const data = doc.data();
       const element: EditorElement = {
-        id: doc.id,
+        uid: doc.id,
+        id: data.id,
         name: data.name,
         type: data.type,
         order: data.order,

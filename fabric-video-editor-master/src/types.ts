@@ -1,6 +1,7 @@
 import { fabric } from "fabric";
 
 export type EditorElementBase<T extends string, P> = {
+  uid: string | null;
   readonly id: string;
   fabricObject?: fabric.Object;
   name: string;
