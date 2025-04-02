@@ -3892,6 +3892,7 @@ snapshots:
       firebase: 11.5.0
       mobx: 6.13.7
       mobx-react: 7.6.0(mobx@6.13.7)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      mobx-react-lite: 4.1.0(mobx@6.13.7)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       next: 13.4.9(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       postcss: 8.4.25
       react: 18.2.0

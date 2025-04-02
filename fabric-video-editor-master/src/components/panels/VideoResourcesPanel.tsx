@@ -4,13 +4,24 @@ import { StoreContext } from "@/store";
 import { observer } from "mobx-react";
 import { VideoResource } from "../entity/VideoResource";
 import { UploadButton } from "../shared/UploadButton";
+import { uploadFile } from "@/utils/fileUpload";
 
 export const VideoResourcesPanel = observer(() => {
   const store = React.useContext(StoreContext);
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    store.addVideoResource(URL.createObjectURL(file));
+    // store.addVideoResource(URL.createObjectURL(file));
+
+    try {
+      // Upload the file and get its URL
+      const fileURL = await uploadFile(file, "videoEditor/videos");
+  
+      // Add the file's URL to the store
+      store.addVideoResource(fileURL);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+    }
   };
   return (
     <>

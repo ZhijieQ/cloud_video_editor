@@ -1,4 +1,4 @@
-import { makeAutoObservable } from 'mobx';
+import { makeAutoObservable, remove } from 'mobx';
 import { fabric } from 'fabric';
 import { getUid, isHtmlAudioElement, isHtmlImageElement, isHtmlVideoElement } from '@/utils';
 import anime, { get } from 'animejs';
@@ -6,7 +6,7 @@ import { MenuOption, EditorElement, Animation, TimeFrame, VideoEditorElement, Au
 import { FabricUitls } from '@/utils/fabric-utils';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
-import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { getFilesFromFolder } from "@/utils/fileUpload";
 
 export class Store {
@@ -21,6 +21,9 @@ export class Store {
   editorElements: EditorElement[]
   selectedElement: EditorElement | null;
   order: number;
+  pendingMerge: { [key: string]: EditorElement };
+  localChanges: { [key: string]: boolean };
+  unsubscribe: () => void;
 
   maxTime: number
   animations: Animation[]
@@ -50,6 +53,9 @@ export class Store {
     this.selectedMenuOption = 'Video';
     this.selectedVideoFormat = 'mp4';
     this.order = 0;
+    this.pendingMerge = {};
+    this.localChanges = {};
+    this.unsubscribe = () => { };
     makeAutoObservable(this);
   }
 
@@ -307,10 +313,36 @@ export class Store {
     // this.refreshAnimations();
   }
 
-  updateEditorElement(editorElement: EditorElement) {
+  updateEditorElement(editorElement: EditorElement, localChange: boolean = true) {
+    if(this.localChanges[editorElement.id]) {
+      delete this.localChanges[editorElement.id];
+      return;
+    }else{
+      this.localChanges[editorElement.id] = true;
+    }
+
+    if(editorElement.uid == null){
+      console.log("Element UID is null");
+      return;
+    }
+
+    if (localChange) {
+      const { fabricObject, ...serializableData } = editorElement;
+      const db = getFirestore();
+      const docRef = doc(db, "videoEditor", editorElement.uid);
+      try {
+        updateDoc(docRef, serializableData)
+            .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
+            .catch((error) => console.error("Error updating document in Firebase:", error));
+      } catch (error) {
+        console.error("Error updating document in Firebase:", error);
+      }
+    }
+    
     this.setEditorElements(this.editorElements.map((element) =>
       element.id === editorElement.id ? editorElement : element
     ));
+    this.refreshElements();
   }
 
   updateEditorElementTimeFrame(editorElement: EditorElement, timeFrame: Partial<TimeFrame>) {
@@ -333,9 +365,15 @@ export class Store {
     this.refreshAnimations();
   }
 
+  async addEditorElement(editorElement: EditorElement, localChange: boolean = true) {
+    if(this.localChanges[editorElement.id]) {
+      delete this.localChanges[editorElement.id];
+      return;
+    }else if(localChange){
+      this.localChanges[editorElement.id] = true;
+    }
 
-  async addEditorElement(editorElement: EditorElement, isSync: boolean = true) {
-    if(isSync){
+    if(localChange){
       const db = getFirestore();
       const videoEditorCollection = collection(db, "videoEditor");
       try {
@@ -356,6 +394,13 @@ export class Store {
     if(id === undefined) {
       alert("Element ID is undefined");
       return;
+    }
+
+    if(this.localChanges[id]) {
+      delete this.localChanges[id];
+      return;
+    }else{
+      this.localChanges[id] = true;
     }
 
     const elementToRemove = this.editorElements.find(
@@ -485,7 +530,7 @@ export class Store {
     );
   }
 
-  async addImage(index: number) {
+  addImage(index: number) {
     const imageElement = document.getElementById(`image-${index}`)
     if (!isHtmlImageElement(imageElement)) {
       return;
@@ -967,25 +1012,87 @@ export class Store {
       .catch((error) => {
         console.error("Error fetching files:", error);
       });
-    
+      
+    getFilesFromFolder('videoEditor/videos')
+      .then((urls) => {
+        urls.forEach((url) => {
+          this.videos.push(url);
+        });
+      })
+      .catch((error) => {
+        console.error("Error fetching files:", error);
+      });
+
+    getFilesFromFolder('videoEditor/audios')
+      .then((urls) => {
+        urls.forEach((url) => {
+          this.audios.push(url);
+        });
+      })
+      .catch((error) => {
+        console.error("Error fetching files:", error);
+      });
+
     const db = getFirestore();
-    const videoEditorCollection = collection(db, "videoEditor");
-    const querySnapshot = await getDocs(videoEditorCollection);
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      const element: EditorElement = {
-        uid: doc.id,
-        id: data.id,
-        name: data.name,
-        type: data.type,
-        order: data.order,
-        placement: data.placement,
-        timeFrame: data.timeFrame,
-        properties: data.properties,
-        editPersonsId: data.editPersonsId,
-      };
-      this.addEditorElement(element, false);
+    // const videoEditorCollection = collection(db, "videoEditor");
+    // const querySnapshot = await getDocs(videoEditorCollection);
+    // querySnapshot.forEach((doc) => {
+    //   const data = doc.data();
+    //   const element: EditorElement = {
+    //     uid: doc.id,
+    //     id: data.id,
+    //     name: data.name,
+    //     type: data.type,
+    //     order: data.order,
+    //     placement: data.placement,
+    //     timeFrame: data.timeFrame,
+    //     properties: data.properties,
+    //     editPersonsId: data.editPersonsId,
+    //   };
+    //   this.addEditorElement(element, false);
+    // });
+
+    const unsubscribe = onSnapshot(collection(db, "videoEditor"), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const data = change.doc.data();
+          const element: EditorElement = {
+            uid: change.doc.id,
+            id: data.id,
+            name: data.name,
+            type: data.type,
+            order: data.order,
+            placement: data.placement,
+            timeFrame: data.timeFrame,
+            properties: data.properties,
+            editPersonsId: data.editPersonsId,
+          };
+          this.addEditorElement(element, false);
+          console.log("New city: ", change.doc.data());
+        }
+        if (change.type === "modified") {
+          const data = change.doc.data();
+          const element: EditorElement = {
+            uid: change.doc.id,
+            id: data.id,
+            name: data.name,
+            type: data.type,
+            order: data.order,
+            placement: data.placement,
+            timeFrame: data.timeFrame,
+            properties: data.properties,
+            editPersonsId: data.editPersonsId,
+          };
+          this.updateEditorElement(element, false);
+          console.log("Modified city: ", change.doc.data());
+        }
+        if (change.type === "removed") {
+          this.removeEditorElement(change.doc.data().id);
+          console.log("Removed city: ", change.doc.data());
+        }
+      });
     });
+    this.unsubscribe = unsubscribe;
   }
 }
 
