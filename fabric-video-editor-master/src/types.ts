@@ -1,13 +1,16 @@
 import { fabric } from "fabric";
 
 export type EditorElementBase<T extends string, P> = {
+  uid: string | null;
   readonly id: string;
   fabricObject?: fabric.Object;
   name: string;
   readonly type: T;
+  order: number;
   placement: Placement;
   timeFrame: TimeFrame;
   properties: P;
+  editPersonsId: string[];
 };
 export type VideoEditorElement = EditorElementBase<
   "video",

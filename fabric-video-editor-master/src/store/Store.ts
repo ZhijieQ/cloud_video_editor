@@ -6,7 +6,7 @@ import { MenuOption, EditorElement, Animation, TimeFrame, VideoEditorElement, Au
 import { FabricUitls } from '@/utils/fabric-utils';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { getFilesFromFolder } from "@/utils/fileUpload";
 
 export class Store {
@@ -20,6 +20,7 @@ export class Store {
   images: string[]
   editorElements: EditorElement[]
   selectedElement: EditorElement | null;
+  order: number;
 
   maxTime: number
   animations: Animation[]
@@ -48,6 +49,7 @@ export class Store {
     this.animationTimeLine = anime.timeline();
     this.selectedMenuOption = 'Video';
     this.selectedVideoFormat = 'mp4';
+    this.order = 0;
     makeAutoObservable(this);
   }
 
@@ -332,17 +334,52 @@ export class Store {
   }
 
 
-  addEditorElement(editorElement: EditorElement) {
+  async addEditorElement(editorElement: EditorElement, isSync: boolean = true) {
+    if(isSync){
+      const db = getFirestore();
+      const videoEditorCollection = collection(db, "videoEditor");
+      try {
+        const docRef = await addDoc(videoEditorCollection, editorElement);
+        editorElement.uid = docRef.id;
+      } catch (error) {
+        alert("Error syncronizing data ");
+        return;
+      }
+    }
+
     this.setEditorElements([...this.editorElements, editorElement]);
     this.refreshElements();
     this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
   }
 
-  removeEditorElement(id: string) {
-    this.setEditorElements(this.editorElements.filter(
-      (editorElement) => editorElement.id !== id
-    ));
-    this.refreshElements();
+  async removeEditorElement(id: string | undefined) {
+    if(id === undefined) {
+      alert("Element ID is undefined");
+      return;
+    }
+
+    const elementToRemove = this.editorElements.find(
+      (editorElement) => editorElement.id === id
+    );
+
+    if (!elementToRemove || !elementToRemove.uid) {
+      alert("Element not found");
+      return;
+  }
+
+    const db = getFirestore();
+    const docRef = doc(db, "videoEditor", elementToRemove.uid);
+    try {
+      await deleteDoc(docRef);
+
+      this.setEditorElements(this.editorElements.filter(
+        (editorElement) => editorElement.id !== id
+      ));
+      this.refreshElements();
+    } catch (error) {
+      console.error("Error deleting document from Firebase:", error);
+      return;
+    }
   }
 
   setMaxTime(maxTime: number) {
@@ -418,8 +455,10 @@ export class Store {
     this.addEditorElement(
       {
         id,
+        uid: null,
         name: `Media(video) ${index + 1}`,
         type: "video",
+        order: this.order++,
         placement: {
           x: 0,
           y: 0,
@@ -440,45 +479,48 @@ export class Store {
             type: "none",
           }
         },
+        editPersonsId: [
+        ],
       },
     );
   }
 
-  addImage(index: number) {
-    debugger
+  async addImage(index: number) {
     const imageElement = document.getElementById(`image-${index}`)
     if (!isHtmlImageElement(imageElement)) {
       return;
     }
     const aspectRatio = imageElement.naturalWidth / imageElement.naturalHeight;
     const id = getUid();
-    this.addEditorElement(
-      {
-        id,
-        name: `Media(image) ${index + 1}`,
-        type: "image",
-        placement: {
-          x: 0,
-          y: 0,
-          width: 100 * aspectRatio,
-          height: 100,
-          rotation: 0,
-          scaleX: 1,
-          scaleY: 1,
-        },
-        timeFrame: {
-          start: 0,
-          end: this.maxTime,
-        },
-        properties: {
-          elementId: `image-${id}`,
-          src: imageElement.src,
-          effect: {
-            type: "none",
-          }
-        },
+    this.addEditorElement({
+      id,
+      uid: null,
+      name: `Media(image) ${index + 1}`,
+      type: "image",
+      order: this.order++,
+      placement: {
+        x: 0,
+        y: 0,
+        width: 100 * aspectRatio,
+        height: 100,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
       },
-    );
+      timeFrame: {
+        start: 0,
+        end: this.maxTime,
+      },
+      properties: {
+        elementId: `image-${id}`,
+        src: imageElement.src,
+        effect: {
+          type: "none",
+        }
+      },
+      editPersonsId: [
+      ],
+    });
   }
 
   addAudio(index: number) {
@@ -491,8 +533,10 @@ export class Store {
     this.addEditorElement(
       {
         id,
+        uid: null,
         name: `Media(audio) ${index + 1}`,
         type: "audio",
+        order: this.order++,
         placement: {
           x: 0,
           y: 0,
@@ -509,7 +553,9 @@ export class Store {
         properties: {
           elementId: `audio-${id}`,
           src: audioElement.src,
-        }
+        },
+        editPersonsId: [
+        ],
       },
     );
 
@@ -525,8 +571,10 @@ export class Store {
     this.addEditorElement(
       {
         id,
+        uid: null,
         name: `Text ${index + 1}`,
         type: "text",
+        order: this.order++,
         placement: {
           x: 0,
           y: 0,
@@ -546,6 +594,8 @@ export class Store {
           fontWeight: options.fontWeight,
           splittedTexts: [],
         },
+        editPersonsId: [
+        ],
       },
     );
   }
@@ -917,6 +967,25 @@ export class Store {
       .catch((error) => {
         console.error("Error fetching files:", error);
       });
+    
+    const db = getFirestore();
+    const videoEditorCollection = collection(db, "videoEditor");
+    const querySnapshot = await getDocs(videoEditorCollection);
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const element: EditorElement = {
+        uid: doc.id,
+        id: data.id,
+        name: data.name,
+        type: data.type,
+        order: data.order,
+        placement: data.placement,
+        timeFrame: data.timeFrame,
+        properties: data.properties,
+        editPersonsId: data.editPersonsId,
+      };
+      this.addEditorElement(element, false);
+    });
   }
 }
 
