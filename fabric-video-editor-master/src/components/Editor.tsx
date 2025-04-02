@@ -70,7 +70,7 @@ export const Editor = observer(() => {
               <span className="h-3 w-3 bg-green-500 rounded-full animate-pulse mr-2" />
             </p>
             { usersConected.map((user, index) => (
-                <img className={`h-10 w-10 rounded-full bg-gray-100 -ml-2 hover:scale-110 ring-1 
+                <img key={index} className={`h-10 w-10 rounded-full bg-gray-100 -ml-2 hover:scale-110 ring-1 
                             ${index % 4 === 0 ? 'ring-red-500' : 
                               index % 4 === 1 ? 'ring-blue-500' : 
                               index % 4 === 2 ? 'ring-green-500' : 
