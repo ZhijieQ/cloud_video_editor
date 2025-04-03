@@ -314,19 +314,16 @@ export class Store {
   }
 
   updateEditorElement(editorElement: EditorElement, localChange: boolean = true) {
-    if(this.localChanges[editorElement.id]) {
-      delete this.localChanges[editorElement.id];
-      return;
-    }else{
-      this.localChanges[editorElement.id] = true;
-    }
-
     if(editorElement.uid == null){
       console.log("Element UID is null");
       return;
     }
-
-    if (localChange) {
+  
+    if(this.localChanges[editorElement.id]) {
+      delete this.localChanges[editorElement.id];
+      return;
+    }else if(localChange){
+      this.localChanges[editorElement.id] = true;
       const { fabricObject, ...serializableData } = editorElement;
       const db = getFirestore();
       const docRef = doc(db, "videoEditor", editorElement.uid);
@@ -338,7 +335,7 @@ export class Store {
         console.error("Error updating document in Firebase:", error);
       }
     }
-    
+
     this.setEditorElements(this.editorElements.map((element) =>
       element.id === editorElement.id ? editorElement : element
     ));
@@ -371,9 +368,6 @@ export class Store {
       return;
     }else if(localChange){
       this.localChanges[editorElement.id] = true;
-    }
-
-    if(localChange){
       const db = getFirestore();
       const videoEditorCollection = collection(db, "videoEditor");
       try {
