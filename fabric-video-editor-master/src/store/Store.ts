@@ -8,6 +8,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
 import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { getFilesFromFolder } from "@/utils/fileUpload";
+import { deepCopy, removeUndefinedFields } from './copy';
 
 export class Store {
   canvas: fabric.Canvas | null
@@ -324,11 +325,12 @@ export class Store {
       return;
     }else if(localChange){
       this.localChanges[editorElement.id] = true;
-      const { fabricObject, ...serializableData } = editorElement;
-      const db = getFirestore();
-      const docRef = doc(db, "videoEditor", editorElement.uid);
+
       try {
-        updateDoc(docRef, serializableData)
+        const db = getFirestore();
+        const docRef = doc(db, "videoEditor", editorElement.uid);
+        const newEditorElement = removeUndefinedFields(deepCopy(editorElement));
+        updateDoc(docRef, newEditorElement)
             .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
             .catch((error) => console.error("Error updating document in Firebase:", error));
       } catch (error) {
