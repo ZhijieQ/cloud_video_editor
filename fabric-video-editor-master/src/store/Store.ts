@@ -320,7 +320,7 @@ export class Store {
       return;
     }
   
-    if(this.localChanges[editorElement.id]) {
+    if(this.localChanges[editorElement.id] && !localChange) {
       delete this.localChanges[editorElement.id];
       return;
     }else if(localChange){
@@ -365,7 +365,7 @@ export class Store {
   }
 
   async addEditorElement(editorElement: EditorElement, localChange: boolean = true) {
-    if(this.localChanges[editorElement.id]) {
+    if(this.localChanges[editorElement.id] && !localChange) {
       delete this.localChanges[editorElement.id];
       return;
     }else if(localChange){
