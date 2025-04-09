@@ -10,6 +10,7 @@ import { Menu } from "./Menu";
 import { TimeLine } from "./TimeLine";
 import { Store } from "@/store/Store";
 import "@/utils/fabric-utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const EditorWithStore = () => {
   const [store] = useState(new Store());
@@ -23,7 +24,9 @@ export const EditorWithStore = () => {
 
 export const Editor = observer(() => {
   const store = React.useContext(StoreContext);
+  const { currentUser } = useAuth();
   const [isAuthenticated, setIsAuthenticated] = useState(true);
+  // 这里可以添加协作用户的数据
   const usersConected = [
     {nombre: "Zhijie", foto: ""},
     {nombre: "Don", foto: ""},
@@ -70,24 +73,42 @@ export const Editor = observer(() => {
               <span className="h-3 w-3 bg-green-500 rounded-full animate-pulse mr-2" />
             </p>
             { usersConected.map((user, index) => (
-                <img key={index} className={`h-10 w-10 rounded-full bg-gray-100 -ml-2 hover:scale-110 ring-1 
-                            ${index % 4 === 0 ? 'ring-red-500' : 
-                              index % 4 === 1 ? 'ring-blue-500' : 
-                              index % 4 === 2 ? 'ring-green-500' : 
+                <img key={index} className={`h-10 w-10 rounded-full bg-gray-100 -ml-2 hover:scale-110 ring-1
+                            ${index % 4 === 0 ? 'ring-red-500' :
+                              index % 4 === 1 ? 'ring-blue-500' :
+                              index % 4 === 2 ? 'ring-green-500' :
                               'ring-yellow-500'}`}/>
-                
+
               ))
             }
           </div>
-          <button className="h-10 w-10 rounded-full bg-gray-200" onClick={()=>setIsAuthenticated(false)}/>
+          {/* Current Logged in User */}
+          {currentUser && (
+            <div className="flex items-center gap-2 ml-4">
+              {currentUser.photoURL ? (
+                <img
+                  src={currentUser.photoURL}
+                  alt="User Avatar"
+                  className="h-10 w-10 rounded-full border border-gray-600"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
+                  {(currentUser.displayName || currentUser.email || '?')[0].toUpperCase()}
+                </div>
+              )}
+              <span className="text-white text-sm">
+                {currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'User')}
+              </span>
+            </div>
+          )}
           </>
         ):(
           <button className="text-white font-normal hover:text-purple-500" onClick={()=>setIsAuthenticated(true)}>
-            Iniciar sesión
+            Sign In
           </button>
         )
         }
-       
+
       </div>
       <div className="tile row-span-2 flex flex-col row-start-2">
         <Menu />

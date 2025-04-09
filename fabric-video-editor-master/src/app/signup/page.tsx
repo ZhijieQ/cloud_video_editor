@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth"; //Google OAuth
+import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, updateProfile } from "firebase/auth"; //Google OAuth
 import { auth } from "@/utils/firebaseConfig";
 
 export default function Signup() {
@@ -17,26 +17,36 @@ export default function Signup() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
+
     // Basic validation
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
-      // TODO: Implement actual signup functionality
+      // Implement email/password signup with full name
       console.log("Signup with:", name, email, password);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Redirect to editor page after successful signup
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Update the user profile with the full name
+      if (user) {
+        await updateProfile(user, {
+          displayName: name
+        });
+        console.log("User profile updated with name:", name);
+      }
+
+      console.log("Signup successful", user);
       window.location.href = "/editor";
-    } catch (error) {
+    } catch (error: any) {
       console.error("Signup failed:", error);
+      const errorCode = error.code;
+      const errorMessage = error.message;
+      console.log(errorCode, errorMessage);
       setError("Failed to create account. Please try again.");
     } finally {
       setIsLoading(false);
@@ -44,25 +54,42 @@ export default function Signup() {
   };
 
   const handleGoogleSignup = async (e: React.FormEvent) => {
-    // TODO: Implement Google OAuth signup
+    // Implement Google OAuth signup
     e.preventDefault();
-    const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider)
-      .then((result) => {
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        const token = credential?.accessToken;
-        const user = result.user;
-        console.log(user);
-        window.location.href = "/editor";
-      })
-      .catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        const email = error.customData.email;
-        const credential = GoogleAuthProvider.credentialFromError(error);
-        console.log(errorCode, errorMessage, email, credential);
-      });
-    console.log("Signup with Google");
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken;
+      const user = result.user;
+
+      // Store the user's full name from Google account
+      if (user && !user.displayName) {
+        // If for some reason the user doesn't have a display name from Google
+        // we could set a default or prompt them to add one
+        console.log("User doesn't have a display name from Google");
+      } else {
+        console.log("User's display name from Google:", user.displayName);
+        // The display name is already stored in the user object from Google
+        // No need to update it separately as it's included in the OAuth profile
+      }
+
+      console.log("Google signup successful", user);
+      window.location.href = "/editor";
+    } catch (error: any) {
+      console.error("Google signup failed:", error);
+      const errorCode = error.code;
+      const errorMessage = error.message;
+      const email = error.customData?.email;
+      const credential = GoogleAuthProvider.credentialFromError(error);
+      console.log(errorCode, errorMessage, email, credential);
+      setError("Failed to sign up with Google. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -70,17 +97,17 @@ export default function Signup() {
       {/* Left section - Logo and Banner */}
       <div className="hidden md:flex md:w-1/2 flex-col items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-blue-500/40 to-purple-600/40 z-0"></div>
-        <Image 
-          src="https://images.unsplash.com/photo-1626379953822-baec19c3accd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" 
-          alt="Video Editing" 
-          fill 
+        <Image
+          src="https://images.unsplash.com/photo-1626379953822-baec19c3accd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80"
+          alt="Video Editing"
+          fill
           className="object-cover z-[-1]"
         />
         <div className="z-10 text-center">
           <div className="text-4xl font-bold text-white mb-6">Cloud Video Editor</div>
           <h2 className="text-2xl font-semibold text-white mb-4">Join Our Creative Community</h2>
           <p className="text-white text-opacity-80 max-w-md">
-            Create stunning videos with our browser-based editor. No downloads required. 
+            Create stunning videos with our browser-based editor. No downloads required.
             Start your creative journey today!
           </p>
         </div>
@@ -210,4 +237,4 @@ export default function Signup() {
       </div>
     </main>
   );
-} 
+}
