@@ -9,6 +9,42 @@ import { toBlobURL } from '@ffmpeg/util';
 import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { getFilesFromFolder } from "@/utils/fileUpload";
 import { deepCopy, removeUndefinedFields } from './copy';
+import { diff, addedDiff, deletedDiff, updatedDiff, detailedDiff } from 'deep-object-diff';
+
+function mergeField(
+  element: EditorElement,
+  from: EditorElement,
+  to: EditorElement,
+  fieldName: string,
+  diffFrom: Record<string, any>,
+  diffTo: Record<string, any>
+): boolean {
+  if(fieldName in diffFrom && fieldName in diffTo) {
+    const diffFieldFrom: Record<string, any> = diff((element as any)[fieldName], (from as any)[fieldName]);
+    const diffFieldTo: Record<string, any> = diff((element as any)[fieldName], (to as any)[fieldName]);
+    const combinedDiff: Record<string, any> = diff(diffFieldFrom, diffFieldTo);
+    if (Object.keys(combinedDiff).length === 0) {
+      for (const key in diffFieldFrom) {
+        if (diffFieldFrom[key] !== undefined) {
+          (element as any)[fieldName][key] = diffFieldFrom[key];
+        }
+      }
+      for (const key in diffFieldTo) {
+        if (diffFieldTo[key] !== undefined) {
+          (element as any)[fieldName][key] = diffFieldTo[key];
+        }
+      }
+    }else{
+      // TODO: handle diff problem.
+      return false;
+    }
+  }else if(fieldName in diffFrom) {
+    (element as any)[fieldName] = (from as any)[fieldName];
+  }else if(fieldName in diffTo) {
+    (element as any)[fieldName] = (to as any)[fieldName];
+  }
+  return true;
+}
 
 export class Store {
   canvas: fabric.Canvas | null
@@ -22,8 +58,12 @@ export class Store {
   editorElements: EditorElement[]
   selectedElement: EditorElement | null;
   order: number;
-  pendingMerge: { [key: string]: EditorElement };
-  localChanges: { [key: string]: boolean };
+  pendingMerge: { [key: string]: {
+    from: EditorElement,
+    to: EditorElement,
+    type: 'deleted' | 'updated'
+  } };
+  // pendingMerge: EditorElement | null;
   unsubscribe: () => void;
 
   maxTime: number
@@ -55,7 +95,6 @@ export class Store {
     this.selectedVideoFormat = 'mp4';
     this.order = 0;
     this.pendingMerge = {};
-    this.localChanges = {};
     this.unsubscribe = () => { };
     makeAutoObservable(this);
   }
@@ -295,16 +334,71 @@ export class Store {
   }
 
   setSelectedElement(selectedElement: EditorElement | null) {
-    this.selectedElement = selectedElement;
     if (this.canvas) {
-      if (selectedElement?.fabricObject)
+      if (selectedElement?.fabricObject){
+        if(!selectedElement.editPersonsId.includes("1")){
+          selectedElement.editPersonsId.push("1");
+          this.uploadToFirebase(selectedElement);
+        }
         this.canvas.setActiveObject(selectedElement.fabricObject);
-      else
+      }
+      else{
+        if(this.selectedElement?.editPersonsId.includes("1")){
+          const element = this.mergeElement(
+            this.pendingMerge[this.selectedElement.id]?.from, 
+            this.selectedElement, 
+            this.pendingMerge[this.selectedElement.id]?.to,
+            this.pendingMerge[this.selectedElement.id]?.type
+          );
+          if(element){
+            element.editPersonsId.filter((id: string) => id !== "1");
+            delete this.pendingMerge[this.selectedElement.id];
+            this.updateEditorElement(element);
+          }
+        }
         this.canvas.discardActiveObject();
+      }
     }
+    this.selectedElement = selectedElement;
   }
   updateSelectedElement() {
     this.selectedElement = this.editorElements.find((element) => element.id === this.selectedElement?.id) ?? null;
+  }
+
+  mergeElement(original: EditorElement, from: EditorElement, to: EditorElement, type: 'deleted' | 'updated') {
+    if(original === undefined || from === undefined || to === undefined) {
+      return;
+    }
+
+    if(type == 'updated'){
+      return this.mergeElementUpdate(original, from, to);
+    }else{
+      return this.mergeElementUpdate(original, from, to);
+    }
+  }
+
+  mergeElementUpdate(original: EditorElement, from: EditorElement, to: EditorElement){
+    const diffFrom: Record<string, any> = diff(original, from);
+    const diffTo: Record<string, any> = diff(original, to);
+    if ('fabricObject' in diffFrom) {
+      delete diffFrom.fabricObject;
+    }
+    if ('fabricObject' in diffTo) {
+      delete diffTo.fabricObject;
+    }
+
+    const element = removeUndefinedFields(deepCopy(original));
+    const normalChanges = ['placement', 'timeFrame', 'editPersonsId']
+    for (const change of normalChanges){
+      if(!mergeField(
+        element, from, to, change,
+        diffFrom, diffTo
+      )){
+        return null;
+      }
+    }
+
+    return element;
   }
 
   setEditorElements(editorElements: EditorElement[]) {
@@ -315,33 +409,47 @@ export class Store {
   }
 
   updateEditorElement(editorElement: EditorElement, localChange: boolean = true) {
-    if(editorElement.uid == null){
-      console.log("Element UID is null");
-      return;
-    }
-  
-    if(this.localChanges[editorElement.id] && !localChange) {
-      delete this.localChanges[editorElement.id];
-      return;
-    }else if(localChange){
-      this.localChanges[editorElement.id] = true;
+    if(this.pendingMerge[editorElement.id] == undefined) {
+      if(!localChange){
+        const ele = this.editorElements.find((e) => e.id === editorElement.id);
+        if (!ele) {
+          return;
+        }
+        
+        const dif = diff(ele, editorElement);
+        if ('fabricObject' in dif) {
+          delete dif.fabricObject;
+        }
 
-      try {
-        const db = getFirestore();
-        const docRef = doc(db, "videoEditor", editorElement.uid);
-        const newEditorElement = removeUndefinedFields(deepCopy(editorElement));
-        updateDoc(docRef, newEditorElement)
-            .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
-            .catch((error) => console.error("Error updating document in Firebase:", error));
-      } catch (error) {
-        console.error("Error updating document in Firebase:", error);
+        if (Object.keys(dif).length === 0) {
+          return;
+        }
+      }else{
+        this.uploadToFirebase(editorElement);
       }
     }
-
+    
     this.setEditorElements(this.editorElements.map((element) =>
       element.id === editorElement.id ? editorElement : element
     ));
     this.refreshElements();
+  }
+
+  uploadToFirebase(editorElement: EditorElement){
+    if(editorElement.uid == null){
+      console.log("Element UID is null");
+      return;
+    }
+    try {
+      const db = getFirestore();
+      const docRef = doc(db, "videoEditor", editorElement.uid);
+      const newEditorElement = removeUndefinedFields(deepCopy(editorElement));
+      updateDoc(docRef, newEditorElement)
+          .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
+          .catch((error) => console.error("Error updating document in Firebase:", error));
+    } catch (error) {
+      console.error("Error updating document in Firebase:", error);
+    }
   }
 
   updateEditorElementTimeFrame(editorElement: EditorElement, timeFrame: Partial<TimeFrame>) {
@@ -365,11 +473,12 @@ export class Store {
   }
 
   async addEditorElement(editorElement: EditorElement, localChange: boolean = true) {
-    if(this.localChanges[editorElement.id] && !localChange) {
-      delete this.localChanges[editorElement.id];
-      return;
-    }else if(localChange){
-      this.localChanges[editorElement.id] = true;
+    if(!localChange){
+      const ele = this.editorElements.find((e) => e.id === editorElement.id);
+      if(ele){
+        return;
+      }
+    }else{
       const db = getFirestore();
       const videoEditorCollection = collection(db, "videoEditor");
       try {
@@ -386,27 +495,20 @@ export class Store {
     this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
   }
 
+  // TODO: if someone remove a element when you are editing it, it can not be remove
   async removeEditorElement(id: string | undefined) {
     if(id === undefined) {
       alert("Element ID is undefined");
       return;
     }
-
-    if(this.localChanges[id]) {
-      delete this.localChanges[id];
-      return;
-    }else{
-      this.localChanges[id] = true;
-    }
-
+  
     const elementToRemove = this.editorElements.find(
       (editorElement) => editorElement.id === id
     );
 
     if (!elementToRemove || !elementToRemove.uid) {
-      alert("Element not found");
       return;
-  }
+    }
 
     const db = getFirestore();
     const docRef = doc(db, "videoEditor", elementToRemove.uid);
@@ -426,7 +528,6 @@ export class Store {
   setMaxTime(maxTime: number) {
     this.maxTime = maxTime;
   }
-
 
   setPlaying(playing: boolean) {
     this.playing = playing;
@@ -1050,41 +1151,63 @@ export class Store {
 
     const unsubscribe = onSnapshot(collection(db, "videoEditor"), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
+        const data = change.doc.data();
+        const element: EditorElement = {
+          uid: change.doc.id,
+          id: data.id,
+          name: data.name,
+          type: data.type,
+          order: data.order,
+          placement: data.placement,
+          timeFrame: data.timeFrame,
+          properties: data.properties,
+          editPersonsId: data.editPersonsId,
+        };
         if (change.type === "added") {
-          const data = change.doc.data();
-          const element: EditorElement = {
-            uid: change.doc.id,
-            id: data.id,
-            name: data.name,
-            type: data.type,
-            order: data.order,
-            placement: data.placement,
-            timeFrame: data.timeFrame,
-            properties: data.properties,
-            editPersonsId: data.editPersonsId,
-          };
           this.addEditorElement(element, false);
           console.log("New city: ", change.doc.data());
         }
         if (change.type === "modified") {
-          const data = change.doc.data();
-          const element: EditorElement = {
-            uid: change.doc.id,
-            id: data.id,
-            name: data.name,
-            type: data.type,
-            order: data.order,
-            placement: data.placement,
-            timeFrame: data.timeFrame,
-            properties: data.properties,
-            editPersonsId: data.editPersonsId,
-          };
-          this.updateEditorElement(element, false);
-          console.log("Modified city: ", change.doc.data());
+          // TODO: change
+          if(this.selectedElement?.id === element.id){
+            const dif = diff(this.selectedElement, element);
+            if ('fabricObject' in dif) {
+              delete (dif as { fabricObject?: unknown }).fabricObject;
+            }
+            if(Object.keys(dif).length === 0){
+              return
+            }
+            if(this.pendingMerge[element.id] == undefined){
+              this.pendingMerge[element.id] = {
+                from: this.selectedElement,
+                to: element,
+                type: "updated"
+              }
+            }else{
+              this.pendingMerge[element.id].to = element;
+              this.pendingMerge[element.id].type = "updated"
+            }
+          }else{
+            this.updateEditorElement(element, false);
+            console.log("Modified city: ", change.doc.data());
+          }
         }
         if (change.type === "removed") {
-          this.removeEditorElement(change.doc.data().id);
-          console.log("Removed city: ", change.doc.data());
+          if(this.selectedElement?.id === element.id){
+            if(this.pendingMerge[element.id] == undefined){
+              this.pendingMerge[element.id] = {
+                from: this.selectedElement,
+                to: element,
+                type: "deleted"
+              }
+            }else{
+              this.pendingMerge[element.id].to = element;
+              this.pendingMerge[element.id].type = "deleted"
+            }
+          }else{
+            this.removeEditorElement(change.doc.data().id);
+            console.log("Removed city: ", change.doc.data());
+          }
         }
       });
     });

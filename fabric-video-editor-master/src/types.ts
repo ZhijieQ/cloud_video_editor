@@ -6,11 +6,11 @@ export type EditorElementBase<T extends string, P> = {
   fabricObject?: fabric.Object;
   name: string;
   readonly type: T;
-  order: number;
+  order: number;          // pending
   placement: Placement;
   timeFrame: TimeFrame;
-  properties: P;
-  editPersonsId: string[];
+  properties: P;          // pending, audio y video y image es parecido.
+  editPersonsId: string[];// pending
 };
 export type VideoEditorElement = EditorElementBase<
   "video",
