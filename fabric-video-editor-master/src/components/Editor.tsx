@@ -11,6 +11,8 @@ import { TimeLine } from "./TimeLine";
 import { Store } from "@/store/Store";
 import "@/utils/fabric-utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { ChatPanel } from "./chat/ChatPanel";
+import { ChatButton } from "./chat/ChatButton";
 
 export const EditorWithStore = () => {
   const [store] = useState(new Store());
@@ -27,6 +29,8 @@ export const Editor = observer(() => {
   const { currentUser, logout, getProfilePhotoURL } = useAuth();
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const profilePhotoURL = getProfilePhotoURL();
   // 这里可以添加协作用户的数据
   const usersConected = [
@@ -49,6 +53,18 @@ export const Editor = observer(() => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showUserMenu]);
+
+  // Generate project ID, in a real application this should be obtained from the URL or state
+  // right now we use a static ID: global-chat
+  const projectId = "global-chat";
+
+  // chat button click
+  const handleChatButtonClick = () => {
+    setIsChatOpen(!isChatOpen);
+    if (!isChatOpen) {
+      setUnreadCount(0);
+    }
+  };
 
   useEffect(() => {
     const canvas = new fabric.Canvas("canvas", {
@@ -192,6 +208,22 @@ export const Editor = observer(() => {
       <div className="col-span-4 text-right px-2 text-[0.5em] bg-black text-white">
         Credits to Amit Digga
       </div>
+
+      {/* chat botton and chat panel */}
+      {currentUser && (
+        <>
+          <ChatButton
+            onClick={handleChatButtonClick}
+            isOpen={isChatOpen}
+            unreadCount={unreadCount}
+          />
+          <ChatPanel
+            projectId={projectId}
+            isOpen={isChatOpen}
+            onClose={() => setIsChatOpen(false)}
+          />
+        </>
+      )}
     </div>
   );
 });

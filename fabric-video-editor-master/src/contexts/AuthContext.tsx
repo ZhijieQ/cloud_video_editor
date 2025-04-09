@@ -20,7 +20,7 @@ type AuthContextType = {
   currentUser: User | null;
   loading: boolean;
   logout: () => Promise<void>;
-  getProfilePhotoURL: () => string | null;
+  getProfilePhotoURL: () => string | null | undefined;
 };
 
 // Create the default value for the context
