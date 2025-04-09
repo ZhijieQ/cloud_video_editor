@@ -1,13 +1,31 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, getProfilePhotoURL } = useAuth();
   const router = useRouter();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const profilePhotoURL = getProfilePhotoURL();
+
+  // process click outside to close user menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showUserMenu && !target.closest('.user-menu-container')) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserMenu]);
 
   return (
     <main className="flex min-h-screen flex-col text-white">
@@ -18,21 +36,68 @@ export default function Home() {
         <div className="flex gap-4 items-center">
           {currentUser ? (
             <>
-              <div className="flex items-center gap-2">
-                {currentUser.photoURL ? (
-                  <img
-                    src={currentUser.photoURL}
-                    alt="User Avatar"
-                    className="w-8 h-8 rounded-full border border-gray-600"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
-                    {(currentUser.displayName || currentUser.email || '?')[0].toUpperCase()}
+              <div className="relative user-menu-container">
+                <div
+                  className="flex items-center gap-2 cursor-pointer"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                >
+                  {profilePhotoURL ? (
+                    <>
+                      <img
+                        src={profilePhotoURL}
+                        alt="User Avatar"
+                        className="w-8 h-8 rounded-full border border-gray-600 hover:border-blue-400 transition-colors"
+                        onError={(e) => {
+                          // when image load failed, show fallback option
+                          e.currentTarget.style.display = 'none';
+                          // Show fallback avatar
+                          const fallbackAvatar = document.getElementById(`fallback-avatar-${currentUser.uid}`);
+                          if (fallbackAvatar) {
+                            fallbackAvatar.style.display = 'flex';
+                          }
+                        }}
+                      />
+                      <div
+                        id={`fallback-avatar-${currentUser.uid}`}
+                        className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium hover:bg-blue-600 transition-colors"
+                        style={{ display: 'none' }}
+                      >
+                        {(currentUser.displayName || currentUser.email || '?')[0].toUpperCase()}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium hover:bg-blue-600 transition-colors">
+                      {(currentUser.displayName || currentUser.email || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <span className="text-sm text-gray-300">
+                    {currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'User')}
+                  </span>
+                </div>
+
+                {/* User dropdown menu */}
+                {showUserMenu && (
+                  <div className="absolute right-0 top-10 w-48 py-2 mt-2 bg-white rounded-md shadow-xl z-20">
+                    <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                      <div className="font-medium">{currentUser.displayName || 'User'}</div>
+                      <div className="text-xs text-gray-500 truncate">{currentUser.email}</div>
+                    </div>
+
+                    <Link href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      Profile Settings
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        logout();
+                        setShowUserMenu(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100"
+                    >
+                      Sign Out
+                    </button>
                   </div>
                 )}
-                <span className="text-sm text-gray-300">
-                  {currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'User')}
-                </span>
               </div>
               <Link
                 href="/editor"
