@@ -6,7 +6,7 @@ import { MenuOption, EditorElement, Animation, TimeFrame, VideoEditorElement, Au
 import { FabricUitls } from '@/utils/fabric-utils';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
-import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, setDoc, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { getFilesFromFolder } from "@/utils/fileUpload";
 import { deepCopy, removeUndefinedFields } from './copy';
 import { diff, addedDiff, deletedDiff, updatedDiff, detailedDiff } from 'deep-object-diff';
@@ -44,6 +44,52 @@ function mergeField(
     (element as any)[fieldName] = (to as any)[fieldName];
   }
   return true;
+}
+
+function mergeElementUpdate(original: EditorElement, from: EditorElement, to: EditorElement){
+  const diffFrom: Record<string, any> = diff(original, from);
+  const diffTo: Record<string, any> = diff(original, to);
+  if ('fabricObject' in diffFrom) {
+    delete diffFrom.fabricObject;
+  }
+  if ('fabricObject' in diffTo) {
+    delete diffTo.fabricObject;
+  }
+
+  const element = removeUndefinedFields(deepCopy(original));
+  const normalChanges = ['placement', 'timeFrame', 'editPersonsId']
+  for (const change of normalChanges){
+    if(!mergeField(
+      element, from, to, change,
+      diffFrom, diffTo
+    )){
+      return null;
+    }
+  }
+
+  return element;
+}
+
+function mergeElementDelete(original: EditorElement, from: EditorElement, to: EditorElement){
+  addToFirestore(to);
+  return to;
+}
+
+async function addToFirestore(editorElement: EditorElement) {
+  const db = getFirestore();
+  const videoEditorCollection = collection(db, "videoEditor");
+  try {
+    if(editorElement.uid == null){
+      const docRef = await addDoc(videoEditorCollection, editorElement);
+      editorElement.uid = docRef.id;
+    }else{
+      const docRef = doc(db, "videoEditor", editorElement.uid);
+      await setDoc(docRef, editorElement);
+    }
+  } catch (error) {
+    alert("Error syncronizing data ");
+    return;
+  }
 }
 
 export class Store {
@@ -371,35 +417,13 @@ export class Store {
     }
 
     if(type == 'updated'){
-      return this.mergeElementUpdate(original, from, to);
+      return mergeElementUpdate(original, from, to);
     }else{
-      return this.mergeElementUpdate(original, from, to);
+      return mergeElementDelete(original, from, to);
     }
   }
 
-  mergeElementUpdate(original: EditorElement, from: EditorElement, to: EditorElement){
-    const diffFrom: Record<string, any> = diff(original, from);
-    const diffTo: Record<string, any> = diff(original, to);
-    if ('fabricObject' in diffFrom) {
-      delete diffFrom.fabricObject;
-    }
-    if ('fabricObject' in diffTo) {
-      delete diffTo.fabricObject;
-    }
-
-    const element = removeUndefinedFields(deepCopy(original));
-    const normalChanges = ['placement', 'timeFrame', 'editPersonsId']
-    for (const change of normalChanges){
-      if(!mergeField(
-        element, from, to, change,
-        diffFrom, diffTo
-      )){
-        return null;
-      }
-    }
-
-    return element;
-  }
+  
 
   setEditorElements(editorElements: EditorElement[]) {
     this.editorElements = editorElements;
@@ -479,15 +503,7 @@ export class Store {
         return;
       }
     }else{
-      const db = getFirestore();
-      const videoEditorCollection = collection(db, "videoEditor");
-      try {
-        const docRef = await addDoc(videoEditorCollection, editorElement);
-        editorElement.uid = docRef.id;
-      } catch (error) {
-        alert("Error syncronizing data ");
-        return;
-      }
+      await addToFirestore(editorElement);
     }
 
     this.setEditorElements([...this.editorElements, editorElement]);
@@ -495,7 +511,6 @@ export class Store {
     this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
   }
 
-  // TODO: if someone remove a element when you are editing it, it can not be remove
   async removeEditorElement(id: string | undefined) {
     if(id === undefined) {
       alert("Element ID is undefined");
