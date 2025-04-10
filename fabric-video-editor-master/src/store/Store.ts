@@ -6,10 +6,11 @@ import { MenuOption, EditorElement, Animation, TimeFrame, VideoEditorElement, Au
 import { FabricUitls } from '@/utils/fabric-utils';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
-import { getFirestore, collection, getDocs, setDoc, addDoc, deleteDoc, doc, onSnapshot, updateDoc, query, where } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, setDoc, addDoc, deleteDoc, doc, onSnapshot, updateDoc, query, where, DocumentChange, QuerySnapshot } from 'firebase/firestore';
 import { getFilesFromFolder } from "@/utils/fileUpload";
 import { deepCopy, removeUndefinedFields } from './copy';
 import { diff, addedDiff, deletedDiff, updatedDiff, detailedDiff } from 'deep-object-diff';
+import { useAuth } from '@/contexts/AuthContext';
 
 function mergeField(
   element: EditorElement,
@@ -71,29 +72,78 @@ function mergeElementUpdate(original: EditorElement, from: EditorElement, to: Ed
 }
 
 function mergeElementDelete(original: EditorElement, from: EditorElement, to: EditorElement){
-  addToFirestore(to);
+  addElementToFirestore(to);
   return to;
 }
 
-async function addToFirestore(editorElement: EditorElement) {
+async function addElementToFirestore(editorElement: EditorElement) {
   const db = getFirestore();
-  const videoEditorCollection = collection(db, "videoEditor");
+  const collec = collection(db, "videoEditor");
   try {
-    // 确保元素有项目ID
-    if (!editorElement.projectId) {
+    if (!editorElement.projectId){
       editorElement.projectId = 'global-project';
     }
-
     if(editorElement.uid == null){
-      const docRef = await addDoc(videoEditorCollection, editorElement);
+      const docRef = await addDoc(collec, editorElement);
       editorElement.uid = docRef.id;
     }else{
       const docRef = doc(db, "videoEditor", editorElement.uid);
       await setDoc(docRef, editorElement);
     }
   } catch (error) {
+    console.error('Error adding element to Firestore:', error);
     alert("Error syncronizing data ");
     return;
+  }
+}
+
+async function addAnimationToFirestore(animation: Animation) {
+  const db = getFirestore();
+  const collec = collection(db, "animations");
+  try {
+    if(animation.uid == null){
+      const docRef = await addDoc(collec, animation);
+      animation.uid = docRef.id;
+    }else{
+      const docRef = doc(db, "animations", animation.uid);
+      await setDoc(docRef, animation);
+    }
+  } catch (error) {
+    alert("Error syncronizing data ");
+    return;
+  }
+}
+
+function uploadElementToFirebase(editorElement: EditorElement){
+  if(editorElement.uid == null){
+    console.log("Element UID is null");
+    return;
+  }
+  try {
+    const db = getFirestore();
+    const docRef = doc(db, "videoEditor", editorElement.uid);
+    const newEle = removeUndefinedFields(deepCopy(editorElement));
+    updateDoc(docRef, newEle)
+        .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
+        .catch((error) => console.error("Error updating document in Firebase:", error));
+  } catch (error) {
+    console.error("Error updating document in Firebase:", error);
+  }
+}
+
+function uploadAnimationToFirebase(animation: Animation){
+  if(animation.uid == null){
+    console.log("Element UID is null");
+    return;
+  }
+  try {
+    const db = getFirestore();
+    const docRef = doc(db, "animations", animation.uid);
+    updateDoc(docRef, animation)
+        .then(() => console.log(`Document with UID ${animation.uid} updated successfully`))
+        .catch((error) => console.error("Error updating document in Firebase:", error));
+  } catch (error) {
+    console.error("Error updating document in Firebase:", error);
   }
 }
 
@@ -150,11 +200,11 @@ export class Store {
     this.order = 0;
     this.pendingMerge = {};
     this.unsubscribe = () => { };
-    this.projectId = 'global-project'; // 默认项目ID
+    this.projectId = 'global-project';
     makeAutoObservable(this);
   }
 
-  // 设置项目ID
+  // set project ID
   setProjectId(projectId: string) {
     this.projectId = projectId;
   }
@@ -208,11 +258,32 @@ export class Store {
     this.images = [...this.images, image];
   }
 
-  addAnimation(animation: Animation) {
+  async addAnimation(animation: Animation, localChange: boolean = true) {
+    if(!localChange){
+      const ele = this.animations.find((e) => e.id === animation.id);
+      if(ele){
+        return;
+      }
+    }
+
+    addAnimationToFirestore(animation);
     this.animations = [...this.animations, animation];
     this.refreshAnimations();
   }
-  updateAnimation(id: string, animation: Animation) {
+  updateAnimation(id: string, animation: Animation, localChange: boolean = true) {
+    if(!localChange){
+      const ele = this.animations.find((e) => e.id === animation.id);
+      if (!ele) {
+        return;
+      }
+
+      const dif = diff(ele, animation);
+      if (Object.keys(dif).length === 0) {
+        return;
+      }
+    }
+
+    uploadAnimationToFirebase(animation);
     const index = this.animations.findIndex((a) => a.id === id);
     this.animations[index] = animation;
     this.refreshAnimations();
@@ -386,11 +457,30 @@ export class Store {
     }
   }
 
-  removeAnimation(id: string) {
-    this.animations = this.animations.filter(
-      (animation) => animation.id !== id
-    );
-    this.refreshAnimations();
+  async removeAnimation(id: string) {
+    if(id === undefined){
+      alert("Element ID is undefined");
+      return;
+    }
+
+    const ele = this.animations.find((e) => e.id === id);
+    if(!ele || !ele.uid){
+      return;
+    }
+
+    const db = getFirestore();
+    const docRef = doc(db, "animations", ele.uid);
+    try {
+      await deleteDoc(docRef);
+
+      this.animations = this.animations.filter(
+          (animation) => animation.id !== id
+      );
+      this.refreshAnimations();
+    } catch (error) {
+      console.error("Error deleting document from Firebase:", error);
+      return;
+    }
   }
 
   setSelectedElement(selectedElement: EditorElement | null) {
@@ -398,7 +488,7 @@ export class Store {
       if (selectedElement?.fabricObject){
         if(!selectedElement.editPersonsId.includes("1")){
           selectedElement.editPersonsId.push("1");
-          this.uploadToFirebase(selectedElement);
+          uploadElementToFirebase(selectedElement);
         }
         this.canvas.setActiveObject(selectedElement.fabricObject);
       }
@@ -437,8 +527,6 @@ export class Store {
     }
   }
 
-
-
   setEditorElements(editorElements: EditorElement[]) {
     this.editorElements = editorElements;
     this.updateSelectedElement();
@@ -453,7 +541,6 @@ export class Store {
         if (!ele) {
           return;
         }
-
         const dif = diff(ele, editorElement);
         if ('fabricObject' in dif) {
           delete dif.fabricObject;
@@ -463,31 +550,13 @@ export class Store {
           return;
         }
       }else{
-        this.uploadToFirebase(editorElement);
+        uploadElementToFirebase(editorElement);
       }
     }
-
     this.setEditorElements(this.editorElements.map((element) =>
       element.id === editorElement.id ? editorElement : element
     ));
     this.refreshElements();
-  }
-
-  uploadToFirebase(editorElement: EditorElement){
-    if(editorElement.uid == null){
-      console.log("Element UID is null");
-      return;
-    }
-    try {
-      const db = getFirestore();
-      const docRef = doc(db, "videoEditor", editorElement.uid);
-      const newEditorElement = removeUndefinedFields(deepCopy(editorElement));
-      updateDoc(docRef, newEditorElement)
-          .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
-          .catch((error) => console.error("Error updating document in Firebase:", error));
-    } catch (error) {
-      console.error("Error updating document in Firebase:", error);
-    }
   }
 
   updateEditorElementTimeFrame(editorElement: EditorElement, timeFrame: Partial<TimeFrame>) {
@@ -511,20 +580,16 @@ export class Store {
   }
 
   async addEditorElement(editorElement: EditorElement, localChange: boolean = true) {
-    // 确保元素有项目ID
-    if (!editorElement.projectId) {
-      console.log('Setting projectId for element:', this.projectId);
+    if (!editorElement.projectId){
       editorElement.projectId = this.projectId;
     }
-
     if(!localChange){
       const ele = this.editorElements.find((e) => e.id === editorElement.id);
       if(ele){
         return;
       }
-    }else{
-      console.log('Adding element to Firestore with projectId:', editorElement.projectId);
-      await addToFirestore(editorElement);
+    }else {
+      await addElementToFirestore(editorElement);
     }
 
     this.setEditorElements([...this.editorElements, editorElement]);
@@ -630,10 +695,6 @@ export class Store {
     const videoDurationMs = videoElement.duration * 1000;
     const aspectRatio = videoElement.videoWidth / videoElement.videoHeight;
     const id = getUid();
-
-    // 打印日志，确认项目ID
-    console.log('Adding video with projectId:', this.projectId);
-
     this.addEditorElement(
       {
         id,
@@ -663,7 +724,7 @@ export class Store {
         },
         editPersonsId: [
         ],
-        projectId: this.projectId, // 添加项目ID
+        projectId: this.projectId,
       },
     );
   }
@@ -675,10 +736,6 @@ export class Store {
     }
     const aspectRatio = imageElement.naturalWidth / imageElement.naturalHeight;
     const id = getUid();
-
-    // 打印日志，确认项目ID
-    console.log('Adding image with projectId:', this.projectId);
-
     this.addEditorElement({
       id,
       uid: null,
@@ -707,7 +764,7 @@ export class Store {
       },
       editPersonsId: [
       ],
-      projectId: this.projectId, // 添加项目ID
+      projectId: this.projectId,
     });
   }
 
@@ -718,10 +775,6 @@ export class Store {
     }
     const audioDurationMs = audioElement.duration * 1000;
     const id = getUid();
-
-    // 打印日志，确认项目ID
-    console.log('Adding audio with projectId:', this.projectId);
-
     this.addEditorElement(
       {
         id,
@@ -748,7 +801,7 @@ export class Store {
         },
         editPersonsId: [
         ],
-        projectId: this.projectId, // 添加项目ID
+        projectId: this.projectId,
       },
     );
 
@@ -761,10 +814,6 @@ export class Store {
   }) {
     const id = getUid();
     const index = this.editorElements.length;
-
-    // 打印日志，确认项目ID
-    console.log('Adding text with projectId:', this.projectId);
-
     this.addEditorElement(
       {
         id,
@@ -793,7 +842,7 @@ export class Store {
         },
         editPersonsId: [
         ],
-        projectId: this.projectId, // 添加项目ID
+        projectId: this.projectId,
       },
     );
   }
@@ -1187,14 +1236,30 @@ export class Store {
       });
 
     const db = getFirestore();
+    // const videoEditorCollection = collection(db, "videoEditor");
+    // const querySnapshot = await getDocs(videoEditorCollection);
+    // querySnapshot.forEach((doc) => {
+    //   const data = doc.data();
+    //   const element: EditorElement = {
+    //     uid: doc.id,
+    //     id: data.id,
+    //     name: data.name,
+    //     type: data.type,
+    //     order: data.order,
+    //     placement: data.placement,
+    //     timeFrame: data.timeFrame,
+    //     properties: data.properties,
+    //     editPersonsId: data.editPersonsId,
+    //   };
+    //   this.addEditorElement(element, false);
+    // });
 
-    // 使用项目ID过滤元素
+    // use project id to filter elements
     console.log('Syncing with projectId:', this.projectId);
     const projectElementsQuery = query(
-      collection(db, "videoEditor"),
-      where("projectId", "==", this.projectId)
+        collection(db, "videoEditor"),
+        where("projectId", "==", this.projectId)
     );
-
     const unsubscribe = onSnapshot(projectElementsQuery, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data = change.doc.data();
@@ -1210,9 +1275,8 @@ export class Store {
           editPersonsId: data.editPersonsId,
         };
         if (change.type === "added") {
-          console.log("New element with projectId:", data.projectId);
           this.addEditorElement(element, false);
-          console.log("Added element: ", change.doc.data());
+          console.log("New city: ", change.doc.data());
         }
         if (change.type === "modified") {
           // TODO: change
@@ -1235,9 +1299,8 @@ export class Store {
               this.pendingMerge[element.id].type = "updated"
             }
           }else{
-            console.log("Modified element with projectId:", data.projectId);
             this.updateEditorElement(element, false);
-            console.log("Modified element: ", change.doc.data());
+            console.log("Modified city: ", change.doc.data());
           }
         }
         if (change.type === "removed") {
@@ -1253,14 +1316,32 @@ export class Store {
               this.pendingMerge[element.id].type = "deleted"
             }
           }else{
-            console.log("Removed element with projectId:", data.projectId);
             this.removeEditorElement(change.doc.data().id);
-            console.log("Removed element: ", change.doc.data());
           }
         }
       });
     });
     this.unsubscribe = unsubscribe;
+
+    onSnapshot(collection(db, "animations"), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const data: Animation = {
+          ...change.doc.data(),
+          uid: change.doc.id,
+        } as Animation;
+
+        if (change.type === "added") {
+          this.addAnimation(data, false);
+          console.log("New city: ", change.doc.data());
+        }
+        if (change.type === "modified") {
+
+        }
+        if (change.type === "removed") {
+
+        }
+      });
+    });
   }
 }
 

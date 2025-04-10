@@ -70,6 +70,7 @@ export type Effect = BlackAndWhiteEffect;
 export type EffecType = Effect["type"];
 
 export type AnimationBase<T, P = {}> = {
+  uid: string | null,
   id: string;
   targetId: string;
   duration: number;
