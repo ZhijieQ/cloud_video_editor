@@ -100,10 +100,10 @@ export default function Home() {
                 )}
               </div>
               <Link
-                href="/editor"
-                className="px-4 py-2 text-sm font-medium text-white hover:text-blue-400 transition-colors"
+                  href="/workspace"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-medium text-center hover:opacity-90 transition-opacity"
               >
-                Editor
+                My WorkSpace
               </Link>
               <button
                 onClick={logout}
@@ -144,10 +144,10 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4">
             {currentUser ? (
               <Link
-                href="/editor"
+                href="/workspace"
                 className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-medium text-center hover:opacity-90 transition-opacity"
               >
-                Go to Editor
+                Go to WorkSpace
               </Link>
             ) : (
               <>
@@ -162,6 +162,12 @@ export default function Home() {
                   className="px-6 py-3 bg-slate-700 text-white rounded-lg font-medium text-center hover:bg-slate-600 transition-colors"
                 >
                   Login
+                </Link>
+                <Link
+                    href="/editor"
+                    className="px-6 py-3 bg-slate-700 text-white rounded-lg font-medium text-center hover:bg-slate-600 transition-colors"
+                >
+                  Demo Editor
                 </Link>
               </>
             )}

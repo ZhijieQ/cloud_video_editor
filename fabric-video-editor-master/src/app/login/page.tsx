@@ -32,7 +32,7 @@ export default function Login() {
       }
 
       // Redirect to editor page after successful login
-      window.location.href = "/editor";
+      window.location.href = "/workspace";
     } catch (error: any) {
       console.error("Login failed:", error);
       const errorCode = error.code;
@@ -62,7 +62,7 @@ export default function Login() {
         console.log("User's display name:", user.displayName);
       }
 
-      window.location.href = "/editor";
+      window.location.href = "/workspace";
     } catch (error: any) {
       console.error("Google login failed:", error);
       const errorCode = error.code;

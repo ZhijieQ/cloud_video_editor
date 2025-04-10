@@ -13,12 +13,11 @@ import {
 import { database } from '@/utils/firebaseConfig';
 import { ChatMessage } from '@/types/chat';
 
-// 获取项目聊天消息引用
 export const getProjectChatRef = (projectId: string): DatabaseReference => {
   return ref(database, `chats/${projectId}/messages`);
 };
 
-// 发送消息
+// sendMessage
 export const sendMessage = async (
   projectId: string,
   text: string,
@@ -45,7 +44,7 @@ export const sendMessage = async (
   }
 };
 
-// 监听消息
+// listen to messages
 export const subscribeToMessages = (
   projectId: string,
   callback: (messages: ChatMessage[]) => void,
@@ -66,13 +65,12 @@ export const subscribeToMessages = (
     }
 
     const messages = Object.values(data) as ChatMessage[];
-    // 按时间戳排序
+    // order by time
     messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     callback(messages);
   };
 
   onValue(messagesQuery, handleMessages);
 
-  // 返回取消订阅函数
   return () => off(messagesQuery, 'value', handleMessages);
 };

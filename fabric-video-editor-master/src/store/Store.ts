@@ -6,7 +6,7 @@ import { MenuOption, EditorElement, Animation, TimeFrame, VideoEditorElement, Au
 import { FabricUitls } from '@/utils/fabric-utils';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
-import { getFirestore, collection, getDocs, setDoc, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, setDoc, addDoc, deleteDoc, doc, onSnapshot, updateDoc, query, where } from 'firebase/firestore';
 import { getFilesFromFolder } from "@/utils/fileUpload";
 import { deepCopy, removeUndefinedFields } from './copy';
 import { diff, addedDiff, deletedDiff, updatedDiff, detailedDiff } from 'deep-object-diff';
@@ -79,6 +79,11 @@ async function addToFirestore(editorElement: EditorElement) {
   const db = getFirestore();
   const videoEditorCollection = collection(db, "videoEditor");
   try {
+    // 确保元素有项目ID
+    if (!editorElement.projectId) {
+      editorElement.projectId = 'global-project';
+    }
+
     if(editorElement.uid == null){
       const docRef = await addDoc(videoEditorCollection, editorElement);
       editorElement.uid = docRef.id;
@@ -112,6 +117,9 @@ export class Store {
   // pendingMerge: EditorElement | null;
   unsubscribe: () => void;
 
+  // Project ID to separate different projects
+  projectId: string;
+
   maxTime: number
   animations: Animation[]
   animationTimeLine: anime.AnimeTimelineInstance;
@@ -142,7 +150,13 @@ export class Store {
     this.order = 0;
     this.pendingMerge = {};
     this.unsubscribe = () => { };
+    this.projectId = 'global-project'; // 默认项目ID
     makeAutoObservable(this);
+  }
+
+  // 设置项目ID
+  setProjectId(projectId: string) {
+    this.projectId = projectId;
   }
 
   get currentTimeInMs() {
@@ -391,8 +405,8 @@ export class Store {
       else{
         if(this.selectedElement?.editPersonsId.includes("1")){
           const element = this.mergeElement(
-            this.pendingMerge[this.selectedElement.id]?.from, 
-            this.selectedElement, 
+            this.pendingMerge[this.selectedElement.id]?.from,
+            this.selectedElement,
             this.pendingMerge[this.selectedElement.id]?.to,
             this.pendingMerge[this.selectedElement.id]?.type
           );
@@ -423,7 +437,7 @@ export class Store {
     }
   }
 
-  
+
 
   setEditorElements(editorElements: EditorElement[]) {
     this.editorElements = editorElements;
@@ -439,7 +453,7 @@ export class Store {
         if (!ele) {
           return;
         }
-        
+
         const dif = diff(ele, editorElement);
         if ('fabricObject' in dif) {
           delete dif.fabricObject;
@@ -452,7 +466,7 @@ export class Store {
         this.uploadToFirebase(editorElement);
       }
     }
-    
+
     this.setEditorElements(this.editorElements.map((element) =>
       element.id === editorElement.id ? editorElement : element
     ));
@@ -497,12 +511,19 @@ export class Store {
   }
 
   async addEditorElement(editorElement: EditorElement, localChange: boolean = true) {
+    // 确保元素有项目ID
+    if (!editorElement.projectId) {
+      console.log('Setting projectId for element:', this.projectId);
+      editorElement.projectId = this.projectId;
+    }
+
     if(!localChange){
       const ele = this.editorElements.find((e) => e.id === editorElement.id);
       if(ele){
         return;
       }
     }else{
+      console.log('Adding element to Firestore with projectId:', editorElement.projectId);
       await addToFirestore(editorElement);
     }
 
@@ -516,7 +537,7 @@ export class Store {
       alert("Element ID is undefined");
       return;
     }
-  
+
     const elementToRemove = this.editorElements.find(
       (editorElement) => editorElement.id === id
     );
@@ -609,6 +630,10 @@ export class Store {
     const videoDurationMs = videoElement.duration * 1000;
     const aspectRatio = videoElement.videoWidth / videoElement.videoHeight;
     const id = getUid();
+
+    // 打印日志，确认项目ID
+    console.log('Adding video with projectId:', this.projectId);
+
     this.addEditorElement(
       {
         id,
@@ -638,6 +663,7 @@ export class Store {
         },
         editPersonsId: [
         ],
+        projectId: this.projectId, // 添加项目ID
       },
     );
   }
@@ -649,6 +675,10 @@ export class Store {
     }
     const aspectRatio = imageElement.naturalWidth / imageElement.naturalHeight;
     const id = getUid();
+
+    // 打印日志，确认项目ID
+    console.log('Adding image with projectId:', this.projectId);
+
     this.addEditorElement({
       id,
       uid: null,
@@ -677,6 +707,7 @@ export class Store {
       },
       editPersonsId: [
       ],
+      projectId: this.projectId, // 添加项目ID
     });
   }
 
@@ -687,6 +718,10 @@ export class Store {
     }
     const audioDurationMs = audioElement.duration * 1000;
     const id = getUid();
+
+    // 打印日志，确认项目ID
+    console.log('Adding audio with projectId:', this.projectId);
+
     this.addEditorElement(
       {
         id,
@@ -713,6 +748,7 @@ export class Store {
         },
         editPersonsId: [
         ],
+        projectId: this.projectId, // 添加项目ID
       },
     );
 
@@ -725,6 +761,10 @@ export class Store {
   }) {
     const id = getUid();
     const index = this.editorElements.length;
+
+    // 打印日志，确认项目ID
+    console.log('Adding text with projectId:', this.projectId);
+
     this.addEditorElement(
       {
         id,
@@ -753,6 +793,7 @@ export class Store {
         },
         editPersonsId: [
         ],
+        projectId: this.projectId, // 添加项目ID
       },
     );
   }
@@ -1113,7 +1154,7 @@ export class Store {
     this.updateTimeTo(this.currentTimeInMs);
     store.canvas.renderAll();
   }
-  
+
   async sync(){
     getFilesFromFolder('videoEditor/images')
       .then((urls) => {
@@ -1124,7 +1165,7 @@ export class Store {
       .catch((error) => {
         console.error("Error fetching files:", error);
       });
-      
+
     getFilesFromFolder('videoEditor/videos')
       .then((urls) => {
         urls.forEach((url) => {
@@ -1146,25 +1187,15 @@ export class Store {
       });
 
     const db = getFirestore();
-    // const videoEditorCollection = collection(db, "videoEditor");
-    // const querySnapshot = await getDocs(videoEditorCollection);
-    // querySnapshot.forEach((doc) => {
-    //   const data = doc.data();
-    //   const element: EditorElement = {
-    //     uid: doc.id,
-    //     id: data.id,
-    //     name: data.name,
-    //     type: data.type,
-    //     order: data.order,
-    //     placement: data.placement,
-    //     timeFrame: data.timeFrame,
-    //     properties: data.properties,
-    //     editPersonsId: data.editPersonsId,
-    //   };
-    //   this.addEditorElement(element, false);
-    // });
 
-    const unsubscribe = onSnapshot(collection(db, "videoEditor"), (snapshot) => {
+    // 使用项目ID过滤元素
+    console.log('Syncing with projectId:', this.projectId);
+    const projectElementsQuery = query(
+      collection(db, "videoEditor"),
+      where("projectId", "==", this.projectId)
+    );
+
+    const unsubscribe = onSnapshot(projectElementsQuery, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data = change.doc.data();
         const element: EditorElement = {
@@ -1179,8 +1210,9 @@ export class Store {
           editPersonsId: data.editPersonsId,
         };
         if (change.type === "added") {
+          console.log("New element with projectId:", data.projectId);
           this.addEditorElement(element, false);
-          console.log("New city: ", change.doc.data());
+          console.log("Added element: ", change.doc.data());
         }
         if (change.type === "modified") {
           // TODO: change
@@ -1203,8 +1235,9 @@ export class Store {
               this.pendingMerge[element.id].type = "updated"
             }
           }else{
+            console.log("Modified element with projectId:", data.projectId);
             this.updateEditorElement(element, false);
-            console.log("Modified city: ", change.doc.data());
+            console.log("Modified element: ", change.doc.data());
           }
         }
         if (change.type === "removed") {
@@ -1220,8 +1253,9 @@ export class Store {
               this.pendingMerge[element.id].type = "deleted"
             }
           }else{
+            console.log("Removed element with projectId:", data.projectId);
             this.removeEditorElement(change.doc.data().id);
-            console.log("Removed city: ", change.doc.data());
+            console.log("Removed element: ", change.doc.data());
           }
         }
       });

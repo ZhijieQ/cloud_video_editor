@@ -16,17 +16,45 @@ import { ChatButton } from "./chat/ChatButton";
 import { subscribeToOnlineUsers, setUserOnlineStatus } from "@/services/presenceService";
 import { OnlineUserAvatars } from "./chat/OnlineUserAvatars";
 
-export const EditorWithStore = () => {
+interface EditorWithStoreProps {
+  projectId: string;
+  projectName?: string;
+  userRole?: 'owner' | 'editor' | 'viewer' | null;
+  ownerId?: string;
+}
+
+export const EditorWithStore = ({ projectId, projectName, userRole, ownerId }: EditorWithStoreProps) => {
   const [store] = useState(new Store());
-  store.sync()
+
+  // Use project id to inicial Store
+  useEffect(() => {
+    if (projectId) {
+      store.setProjectId(projectId);
+      store.sync();
+    }
+  }, [projectId, store]);
+
   return (
     <StoreContext.Provider value={store}>
-      <Editor></Editor>
+      <Editor
+        projectId={projectId}
+        projectName={projectName}
+        userRole={userRole}
+        ownerId={ownerId}
+      />
     </StoreContext.Provider>
   );
 }
 
-export const Editor = observer(() => {
+interface EditorProps {
+  projectId: string;
+  projectName?: string;
+  userRole?: 'owner' | 'editor' | 'viewer' | null;
+  ownerId?: string;
+}
+
+export const Editor = observer((props: EditorProps) => {
+  const { projectId, projectName, userRole, ownerId } = props;
   const store = React.useContext(StoreContext);
   const { currentUser, logout, getProfilePhotoURL } = useAuth();
   const [isAuthenticated, setIsAuthenticated] = useState(true);
@@ -35,6 +63,9 @@ export const Editor = observer(() => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
   const profilePhotoURL = getProfilePhotoURL();
+
+  // check user roles
+  const canEdit = userRole === 'owner' || userRole === 'editor';
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -50,15 +81,9 @@ export const Editor = observer(() => {
     };
   }, [showUserMenu]);
 
-  // Generate project ID, in a real application this should be obtained from the URL or state
-  // right now we use a static ID: global-chat
-  const projectId = "global-chat";
-
   // Set user online status and subscribe to online users
   useEffect(() => {
     if (!currentUser) return;
-
-    console.log('Setting user online status and subscribing to online users, projectId:', projectId);
 
     // Set user online status
     const cleanupPresence = setUserOnlineStatus(projectId, currentUser.uid, {
@@ -72,7 +97,6 @@ export const Editor = observer(() => {
       projectId,
       currentUser.uid,
       (users) => {
-        console.log('Online users:', users.length);
         setOnlineUsers(users);
       }
     );
@@ -129,8 +153,21 @@ export const Editor = observer(() => {
     <div className="grid grid-rows-[60px_500px_1fr_20px] grid-cols-[72px_300px_1fr_250px] h-[100svh]">
 
       <div className="relative col-span-4 bg-black px-10 py-2 flex justify-end items-center gap-x-32">
-        <div className="absolute left-0 ml-10 text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-          Cloud Video Editor
+        <div className="absolute left-0 ml-10 flex items-center">
+          <div className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            Cloud Video Editor
+          </div>
+          {projectName && (
+            <div className="ml-4 text-gray-300 flex items-center">
+              <span className="mx-2 text-gray-600">/</span>
+              <span className="font-medium">{projectName}</span>
+              {userRole && (
+                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-900 text-blue-300">
+                  {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         { isAuthenticated ? (
           <>

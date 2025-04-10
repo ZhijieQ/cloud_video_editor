@@ -11,6 +11,7 @@ export type EditorElementBase<T extends string, P> = {
   timeFrame: TimeFrame;
   properties: P;          // pending, audio y video y image es parecido.
   editPersonsId: string[];// pending
+  projectId?: string;     // 项目ID，用于区分不同项目的元素
 };
 export type VideoEditorElement = EditorElementBase<
   "video",
@@ -60,9 +61,9 @@ export type EffectBase<T extends string> = {
   type: T;
 }
 
-export type BlackAndWhiteEffect = EffectBase<"none"> | 
-EffectBase<"blackAndWhite"> | 
-EffectBase<"sepia"> | 
+export type BlackAndWhiteEffect = EffectBase<"none"> |
+EffectBase<"blackAndWhite"> |
+EffectBase<"sepia"> |
 EffectBase<"invert"> |
 EffectBase<"saturate"> ;
 export type Effect = BlackAndWhiteEffect;

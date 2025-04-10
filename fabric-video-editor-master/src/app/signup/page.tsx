@@ -41,7 +41,7 @@ export default function Signup() {
       }
 
       console.log("Signup successful", user);
-      window.location.href = "/editor";
+      window.location.href = "/workspace";
     } catch (error: any) {
       console.error("Signup failed:", error);
       const errorCode = error.code;
@@ -78,7 +78,7 @@ export default function Signup() {
       }
 
       console.log("Google signup successful", user);
-      window.location.href = "/editor";
+      window.location.href = "/workspace";
     } catch (error: any) {
       console.error("Google signup failed:", error);
       const errorCode = error.code;

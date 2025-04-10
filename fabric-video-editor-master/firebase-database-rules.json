@@ -2,6 +2,77 @@
   "rules": {
     ".read": "auth != null",
     ".write": "auth != null",
+    "projects": {
+      ".indexOn": ["ownerId"],
+      "$projectId": {
+        ".read": "auth != null && (data.child('ownerId').val() === auth.uid || data.child('collaborators').child(auth.uid).exists())",
+        ".write": "auth != null && (data.child('ownerId').val() === auth.uid || data.child('collaborators').child(auth.uid).child('role').val() === 'editor')",
+        "ownerId": {
+          ".validate": "newData.isString()"
+        },
+        "ownerName": {
+          ".validate": "newData.isString()"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
+        },
+        "description": {
+          ".validate": "newData.isString() && newData.val().length <= 500"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "thumbnail": {
+          ".validate": "newData.isString() || newData.val() == null"
+        },
+        "collaborators": {
+          ".indexOn": [".value"],
+          "$userId": {
+            ".validate": "newData.hasChildren(['role', 'email', 'name'])",
+            "role": {
+              ".validate": "newData.isString() && (newData.val() === 'editor' || newData.val() === 'viewer')"
+            },
+            "email": {
+              ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$/)"
+            },
+            "name": {
+              ".validate": "newData.isString()"
+            }
+          }
+        },
+        "userPresence": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "$userId": {
+            ".validate": "newData.hasChildren(['displayName', 'lastActive']) && $userId === auth.uid",
+            "displayName": {
+              ".validate": "newData.isString()"
+            },
+            "lastActive": {
+              ".validate": "newData.isNumber() || newData.val() === now"
+            }
+          }
+        },
+        "editorState": {
+          ".read": "auth != null && (root.child('projects').child($projectId).child('ownerId').val() === auth.uid || root.child('projects').child($projectId).child('collaborators').child(auth.uid).exists())",
+          ".write": "auth != null && (root.child('projects').child($projectId).child('ownerId').val() === auth.uid || root.child('projects').child($projectId).child('collaborators').child(auth.uid).child('role').val() === 'editor')",
+          "elements": {
+            "$elementId": {
+              ".validate": "newData.hasChildren(['type'])",
+              "type": {
+                ".validate": "newData.isString()"
+              }
+            }
+          },
+          "history": {
+            ".validate": "newData.isString() || newData.val() == null"
+          }
+        }
+      }
+    },
     "chats": {
       "$projectId": {
         ".read": "auth != null",
@@ -25,25 +96,6 @@
             },
             "projectId": {
               ".validate": "newData.isString() && newData.val() === $projectId"
-            }
-          }
-        }
-      }
-    },
-    "projects": {
-      "$projectId": {
-        ".read": "auth != null",
-        ".write": "auth != null",
-        "userPresence": {
-          ".read": "auth != null",
-          ".write": "auth != null",
-          "$userId": {
-            ".validate": "newData.hasChildren(['displayName', 'lastActive']) && $userId === auth.uid",
-            "displayName": {
-              ".validate": "newData.isString()"
-            },
-            "lastActive": {
-              ".validate": "newData.isNumber() || newData.val() === now"
             }
           }
         }
