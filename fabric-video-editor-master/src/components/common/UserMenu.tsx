@@ -77,6 +77,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
         )}
         <span className="text-white text-sm">
           {currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'User')}
+          <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-red-900 text-black-300">VIP</span>
         </span>
       </div>
 
