@@ -7,43 +7,45 @@ export const createProject = async (project: Omit<Project, 'id'>): Promise<strin
     return docRef.id;
 };
 
-export const fetchUserProjects = async (userId: string): Promise<Project[]> => {
+export const fetchUserProjects = async (userId: string, userEmail: string): Promise<Project[]> => {
     try {
-        // get user projects (owns)
+        const projectsCollection = collection(projectFirestore, 'projects');
+        const normalizedEmail = userEmail.toLowerCase();
+        // 1. get projects owned by the user
         const ownerQuery = query(
-            collection(projectFirestore, 'projects'),
+            projectsCollection,
             where('ownerId', '==', userId)
         );
-
-        // get user projects (invited)
-        const collaboratorQuery = query(
-            collection(projectFirestore, 'projects'),
-            where(`collaborators.${userId}`, '!=', null)
-        );
-
-        const [ownerSnapshot, collaboratorSnapshot] = await Promise.all([
-            getDocs(ownerQuery),
-            getDocs(collaboratorQuery)
-        ]);
-
-        // get results and remove duplicates
+        const ownerSnapshot = await getDocs(ownerQuery);
+        // 2. get projects shared with the user
+        // use in operator to check if the collaborators field contains the user's email
+        const allProjectsQuery = query(projectsCollection);
+        const allProjectsSnapshot = await getDocs(allProjectsQuery);
+        
+        // 3. merge results and remove duplicates
         const projectsMap = new Map<string, Project>();
 
+        // add owned projects
         ownerSnapshot.forEach(doc => {
             const data = doc.data() as Omit<Project, 'id'>;
             projectsMap.set(doc.id, { id: doc.id, ...data } as Project);
         });
 
-        collaboratorSnapshot.forEach(doc => {
+        // add shared projects
+        allProjectsSnapshot.forEach(doc => {
             if (!projectsMap.has(doc.id)) {
                 const data = doc.data() as Omit<Project, 'id'>;
-                projectsMap.set(doc.id, { id: doc.id, ...data } as Project);
+                // check if the project is shared with the current user
+                if (data.collaborators && data.collaborators[normalizedEmail]) {
+                    projectsMap.set(doc.id, { id: doc.id, ...data } as Project);
+                }
             }
         });
 
-        // order by update time
+        // 4. sort by update time
         const projects = Array.from(projectsMap.values());
-        return projects.sort((a, b) => b.updatedAt - a.updatedAt);
+        const sortedProjects = projects.sort((a, b) => b.updatedAt - a.updatedAt);
+        return sortedProjects;
     } catch (error) {
         console.error('Error fetching user projects:', error);
         throw error;
@@ -63,12 +65,14 @@ export const inviteCollaborator = async (
     role: 'editor' | 'viewer'
 ): Promise<void> => {
     const projectRef = doc(projectFirestore, 'projects', projectId);
+    const normalizedEmail = userEmail.toLowerCase();
+    
     await updateDoc(projectRef, {
-        [`collaborators.${userId}`]: {
+        [`collaborators.${normalizedEmail}`]: {
             role,
-            email: userEmail,
+            email: normalizedEmail,
             name: userName,
-            addedAt: Date.now()
+            addedAt: new Date().toISOString()
         }
     });
 };

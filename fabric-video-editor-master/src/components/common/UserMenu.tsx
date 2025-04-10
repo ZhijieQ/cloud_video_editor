@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface UserMenuProps {
   className?: string;
@@ -14,7 +15,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
   const profilePhotoURL = getProfilePhotoURL();
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // 点击外部关闭菜单
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -30,8 +30,8 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
 
   if (!currentUser) {
     return (
-      <Link 
-        href="/login" 
+      <Link
+        href="/login"
         className="text-white font-normal hover:text-purple-500 transition-colors"
       >
         Sign In
@@ -41,28 +41,29 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
 
   return (
     <div className={`relative user-menu-container ${className}`} ref={menuRef}>
-      <div 
-        className="flex items-center gap-2 cursor-pointer" 
+      <div
+        className="flex items-center gap-2 cursor-pointer"
         onClick={() => setShowUserMenu(!showUserMenu)}
       >
         {profilePhotoURL ? (
           <>
-            <img
+            <Image
               src={profilePhotoURL}
               alt="User Avatar"
-              className="h-10 w-10 rounded-full border border-gray-600 hover:border-blue-400 transition-colors"
+              width={40}
+              height={40}
+              className="rounded-full border border-gray-600 hover:border-blue-400 transition-colors"
               onError={(e) => {
-                // 当图像加载失败时，将显示备用选项
+                // @ts-ignore
                 e.currentTarget.style.display = 'none';
-                // 显示备用头像
                 const fallbackAvatar = document.getElementById(`user-menu-fallback-avatar-${currentUser.uid}`);
                 if (fallbackAvatar) {
                   fallbackAvatar.style.display = 'flex';
                 }
               }}
             />
-            <div 
-              id={`user-menu-fallback-avatar-${currentUser.uid}`} 
+            <div
+              id={`user-menu-fallback-avatar-${currentUser.uid}`}
               className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium hover:bg-blue-600 transition-colors"
               style={{ display: 'none' }}
             >
@@ -78,7 +79,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
           {currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'User')}
         </span>
       </div>
-      
+
       {/* User dropdown menu */}
       {showUserMenu && (
         <div className="absolute right-0 top-12 w-48 py-2 mt-2 bg-white rounded-md shadow-xl z-20">
@@ -86,16 +87,16 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
             <div className="font-medium">{currentUser.displayName || 'User'}</div>
             <div className="text-xs text-gray-500 truncate">{currentUser.email}</div>
           </div>
-          
+
           <Link href="/workspace" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-            My Projects
+            My WorkSpace
           </Link>
-          
+
           <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
             Profile Settings
           </Link>
-          
-          <button 
+
+          <button
             onClick={() => {
               logout();
               setShowUserMenu(false);

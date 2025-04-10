@@ -11,6 +11,18 @@ interface ProjectCardProps {
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) => {
     const { currentUser } = useAuth();
     const isOwner = currentUser?.uid === project.ownerId;
+    
+    // check if the current user is a collaborator
+    const userRole = currentUser?.email && project.collaborators?.[currentUser.email.toLowerCase()]?.role;
+    const isCollaborator = !!userRole;
+
+    // get user role display text
+    const getRoleText = () => {
+        if (isOwner) return 'Owner';
+        if (userRole === 'editor') return 'Editor';
+        if (userRole === 'viewer') return 'Viewer';
+        return '';
+    };
 
     const handleDelete = async () => {
         if (!confirm('Are you sure you want to delete this project?')) return;
@@ -18,10 +30,20 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) =
         onDelete();
     };
 
+    // if the current user is neither the owner nor a collaborator, do not display the project card
+    if (!isOwner && !isCollaborator) {
+        return null;
+    }
+
     return (
         <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
             <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-semibold">{project.name}</h3>
+                <div>
+                    <h3 className="text-xl font-semibold">{project.name}</h3>
+                    <span className="text-sm text-gray-400 mt-1">
+                        {getRoleText()}
+                    </span>
+                </div>
                 {isOwner && (
                     <button
                         onClick={handleDelete}
@@ -43,7 +65,18 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) =
                 </Link>
 
                 <div className="text-sm text-gray-400">
-                    Last updated: {new Date(project.updatedAt).toLocaleDateString()}
+                    Last updated: {
+                        (() => {
+                            const date = new Date(project.updatedAt);
+                            const hours = date.getHours().toString().padStart(2, '0');
+                            const minutes = date.getMinutes().toString().padStart(2, '0');
+                            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                            const day = date.getDate().toString().padStart(2, '0');
+                            const year = date.getFullYear();
+
+                            return `${hours}:${minutes} ${month}/${day}/${year}`;
+                        })()
+                    }
                 </div>
             </div>
         </div>

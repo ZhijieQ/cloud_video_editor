@@ -15,6 +15,8 @@ import { ChatPanel } from "./chat/ChatPanel";
 import { ChatButton } from "./chat/ChatButton";
 import { subscribeToOnlineUsers, setUserOnlineStatus } from "@/services/presenceService";
 import { OnlineUserAvatars } from "./chat/OnlineUserAvatars";
+import { UserMenu } from "./common/UserMenu";
+import { ShareProject } from "./common/ShareProject";
 
 interface EditorWithStoreProps {
   projectId: string;
@@ -56,30 +58,13 @@ interface EditorProps {
 export const Editor = observer((props: EditorProps) => {
   const { projectId, projectName, userRole, ownerId } = props;
   const store = React.useContext(StoreContext);
-  const { currentUser, logout, getProfilePhotoURL } = useAuth();
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const { currentUser, getProfilePhotoURL } = useAuth();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
-  const profilePhotoURL = getProfilePhotoURL();
-
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   // check user roles
   const canEdit = userRole === 'owner' || userRole === 'editor';
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (showUserMenu && !target.closest('.user-menu-container')) {
-        setShowUserMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showUserMenu]);
 
   // Set user online status and subscribe to online users
   useEffect(() => {
@@ -166,11 +151,21 @@ export const Editor = observer((props: EditorProps) => {
                   {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
                 </span>
               )}
+              {userRole === 'owner' && (
+                <button
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="ml-4 px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md flex items-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                  </svg>
+                  Share Project
+                </button>
+              )}
             </div>
           )}
         </div>
-        { isAuthenticated ? (
-          <>
+        <>
           <div className="relative flex items-center">
             <p className="text-white flex items-center gap-x-4 mr-5">
               Live Users
@@ -178,77 +173,9 @@ export const Editor = observer((props: EditorProps) => {
             </p>
             <OnlineUserAvatars users={onlineUsers} />
           </div>
-          {/* Current Logged in User */}
-          {currentUser && (
-            <div className="flex items-center gap-2 ml-4 relative user-menu-container">
-              <div
-                className="flex items-center gap-2 cursor-pointer"
-                onClick={() => setShowUserMenu(!showUserMenu)}
-              >
-                {profilePhotoURL ? (
-                  <>
-                    <img
-                      src={profilePhotoURL}
-                      alt="User Avatar"
-                      className="h-10 w-10 rounded-full border border-gray-600 hover:border-blue-400 transition-colors"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const fallbackAvatar = document.getElementById(`editor-fallback-avatar-${currentUser.uid}`);
-                        if (fallbackAvatar) {
-                          fallbackAvatar.style.display = 'flex';
-                        }
-                      }}
-                    />
-                    <div
-                      id={`editor-fallback-avatar-${currentUser.uid}`}
-                      className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium hover:bg-blue-600 transition-colors"
-                      style={{ display: 'none' }}
-                    >
-                      {(currentUser.displayName || currentUser.email || '?')[0].toUpperCase()}
-                    </div>
-                  </>
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium hover:bg-blue-600 transition-colors">
-                    {(currentUser.displayName || currentUser.email || '?')[0].toUpperCase()}
-                  </div>
-                )}
-                <span className="text-white text-sm">
-                  {currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'User')}
-                </span>
-              </div>
-
-              {/* User dropdown menu */}
-              {showUserMenu && (
-                <div className="absolute right-0 top-12 w-48 py-2 mt-2 bg-white rounded-md shadow-xl z-20">
-                  <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                    <div className="font-medium">{currentUser.displayName || 'User'}</div>
-                    <div className="text-xs text-gray-500 truncate">{currentUser.email}</div>
-                  </div>
-
-                  <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Profile Settings
-                  </a>
-
-                  <button
-                    onClick={() => {
-                      logout();
-                      setShowUserMenu(false);
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100"
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          </>
-        ):(
-          <button className="text-white font-normal hover:text-purple-500" onClick={()=>setIsAuthenticated(true)}>
-            Sign In
-          </button>
-        )
-        }
+          {/* User Menu */}
+          <UserMenu className="ml-4" />
+        </>
 
       </div>
       <div className="tile row-span-2 flex flex-col row-start-2">
@@ -288,6 +215,14 @@ export const Editor = observer((props: EditorProps) => {
           />
         </>
       )}
+
+      {/* Share Project Modal */}
+      <ShareProject
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        projectId={projectId}
+        currentUserRole={userRole || null}
+      />
     </div>
   );
 });

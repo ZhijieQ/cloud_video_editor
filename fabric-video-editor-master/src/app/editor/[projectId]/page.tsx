@@ -24,7 +24,7 @@ export default function EditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'owner' | 'editor' | 'viewer' | null>(null);
 
-  // get projeft info
+  // get project info
   useEffect(() => {
     if (!currentUser) {
       router.push('/login');
@@ -42,22 +42,15 @@ export default function EditorPage() {
       setError(null);
 
       try {
-        console.log('Fetching project with ID:', projectId);
         const projectRef = doc(projectFirestore, 'projects', projectId);
         const snapshot = await getDoc(projectRef);
-
-        console.log('Snapshot exists:', snapshot.exists());
         if (snapshot.exists()) {
           const projectData = snapshot.data() as Omit<Project, 'id'>;
-          console.log('Project data (without id):', projectData);
-
           // create a new object that includes all original data and the id
           const projectWithId: Project = {
             ...projectData,
             id: snapshot.id
           };
-
-          console.log('Project data (with id):', projectWithId);
           setProject(projectWithId);
 
           // get user role
@@ -65,14 +58,14 @@ export default function EditorPage() {
             setUserRole('owner');
           } else if (
             projectData.collaborators &&
-            projectData.collaborators[currentUser.uid] &&
-            projectData.collaborators[currentUser.uid].role === 'editor'
+            projectData.collaborators[currentUser.email?.toLowerCase() || ''] &&
+            projectData.collaborators[currentUser.email?.toLowerCase() || ''].role === 'editor'
           ) {
             setUserRole('editor');
           } else if (
             projectData.collaborators &&
-            projectData.collaborators[currentUser.uid] &&
-            projectData.collaborators[currentUser.uid].role === 'viewer'
+            projectData.collaborators[currentUser.email?.toLowerCase() || ''] &&
+            projectData.collaborators[currentUser.email?.toLowerCase() || ''].role === 'viewer'
           ) {
             setUserRole('viewer');
           } else {
