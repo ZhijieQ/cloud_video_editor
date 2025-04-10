@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { getUserBgColor } from '@/utils/userColors';
 
 interface OnlineUser {
   uid: string;
@@ -43,7 +44,7 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ users }) => {
                   }}
                 />
               ) : (
-                <div className="h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">
+                <div className={`h-6 w-6 rounded-full flex items-center justify-center text-white text-xs ${getUserBgColor(user.uid)}`}>
                   {user.displayName[0].toUpperCase()}
                 </div>
               )}

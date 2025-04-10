@@ -12,7 +12,7 @@ const firebaseConfig = {
   storageBucket: "cloud2-6d64d.firebasestorage.app",
   messagingSenderId: "684858510473",
   appId: "1:684858510473:web:64b710b3f6c98bbd408a58",
-  databaseURL: "https://cloud2-6d64d-default-rtdb.firebaseio.com"
+  databaseURL: "https://cloud2-6d64d-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
 const app = initializeApp(firebaseConfig);

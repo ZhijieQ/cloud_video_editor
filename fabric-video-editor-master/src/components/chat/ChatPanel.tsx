@@ -4,9 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChatMessage } from '@/types/chat';
 import { sendMessage, subscribeToMessages } from '@/services/chatService';
-import { setUserOnlineStatus, subscribeToOnlineUsers } from '@/services/presenceService';
 import { OnlineUsers } from './OnlineUsers';
 import { formatDistanceToNow } from 'date-fns';
+import { getUserBgColor } from '@/utils/userColors';
+import {OnlineUserAvatars} from "@/components/chat/OnlineUserAvatars";
 
 interface ChatPanelProps {
   projectId: string;
@@ -22,7 +23,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, isOpen, onClose
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 订阅消息
+  // subscribeToMessages
   useEffect(() => {
     if (!projectId || !isOpen || !currentUser) return;
 
@@ -32,35 +33,23 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, isOpen, onClose
       setLoading(false);
     });
 
-    // 设置用户在线状态
-    const cleanupPresence = setUserOnlineStatus(projectId, currentUser.uid, {
-      displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-      photoURL: getProfilePhotoURL(),
-      lastActive: Date.now()
-    });
-
-    // 订阅在线用户
-    const unsubscribeUsers = subscribeToOnlineUsers(
-      projectId,
-      currentUser.uid,
-      (users) => setOnlineUsers(users)
-    );
+    // We don't need to set user online status here as it's already set in Editor.tsx
+    // We also don't need to subscribe to online users here as it's already done in Editor.tsx
+    // We just need to unsubscribe from messages when the component unmounts
 
     return () => {
       unsubscribeMessages();
-      unsubscribeUsers();
-      cleanupPresence();
     };
-  }, [projectId, isOpen, currentUser, getProfilePhotoURL]);
+  }, [projectId, isOpen, currentUser]);
 
-  // 滚动到最新消息
+  // Role to new message
   useEffect(() => {
     if (isOpen && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen]);
 
-  // 发送消息
+  // Sent Message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -84,7 +73,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, isOpen, onClose
 
   return (
     <div className="fixed bottom-0 right-0 w-80 h-96 bg-gray-800 border border-gray-700 rounded-tl-lg shadow-lg flex flex-col z-50">
-      {/* 聊天头部 */}
+      {/* Message Header */}
       <div className="flex justify-between items-center px-4 py-2 border-b border-gray-700 bg-gray-900 rounded-tl-lg">
         <h3 className="text-white font-medium">Team Chat</h3>
         <button
@@ -97,7 +86,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, isOpen, onClose
         </button>
       </div>
 
-      {/* 消息列表 */}
+      {/* Message List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {loading ? (
           <div className="flex justify-center items-center h-full">
@@ -114,7 +103,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, isOpen, onClose
               className={`flex ${message.senderId === currentUser?.uid ? 'justify-end' : 'justify-start'}`}
             >
               <div className={`flex max-w-xs ${message.senderId === currentUser?.uid ? 'flex-row-reverse' : 'flex-row'}`}>
-                {/* 用户头像 */}
+                {/* User Avatar */}
                 <div className="flex-shrink-0">
                   {message.senderPhotoURL ? (
                     <img
@@ -130,13 +119,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, isOpen, onClose
                       }}
                     />
                   ) : (
-                    <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white font-medium ${getUserBgColor(message.senderId)}`}>
                       {message.senderName[0].toUpperCase()}
                     </div>
                   )}
                 </div>
 
-                {/* 消息内容 */}
+                {/* Message Content */}
                 <div
                   className={`ml-2 mr-2 px-4 py-2 rounded-lg ${
                     message.senderId === currentUser?.uid
@@ -163,7 +152,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, isOpen, onClose
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 消息输入框 */}
+      {/* Message Input Area */}
       <form onSubmit={handleSendMessage} className="p-2 border-t border-gray-700 bg-gray-900">
         <div className="flex">
           <input
@@ -185,8 +174,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ projectId, isOpen, onClose
         </div>
       </form>
 
-      {/* 在线用户列表 */}
+{/*       Online User alist
       <OnlineUsers users={onlineUsers} />
+      <OnlineUserAvatars users={onlineUsers} />*/}
     </div>
   );
 };

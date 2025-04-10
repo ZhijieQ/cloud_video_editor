@@ -13,6 +13,8 @@ import "@/utils/fabric-utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatPanel } from "./chat/ChatPanel";
 import { ChatButton } from "./chat/ChatButton";
+import { subscribeToOnlineUsers, setUserOnlineStatus } from "@/services/presenceService";
+import { OnlineUserAvatars } from "./chat/OnlineUserAvatars";
 
 export const EditorWithStore = () => {
   const [store] = useState(new Store());
@@ -31,14 +33,8 @@ export const Editor = observer(() => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
   const profilePhotoURL = getProfilePhotoURL();
-  // 这里可以添加协作用户的数据
-  const usersConected = [
-    {nombre: "Zhijie", foto: ""},
-    {nombre: "Don", foto: ""},
-    {nombre: "Ander", foto: ""},
-    {nombre: "Martin", foto: ""},
-  ]
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -57,6 +53,45 @@ export const Editor = observer(() => {
   // Generate project ID, in a real application this should be obtained from the URL or state
   // right now we use a static ID: global-chat
   const projectId = "global-chat";
+
+  // Set user online status and subscribe to online users
+  useEffect(() => {
+    if (!currentUser) return;
+
+    console.log('Setting user online status and subscribing to online users, projectId:', projectId);
+
+    // Set user online status
+    const cleanupPresence = setUserOnlineStatus(projectId, currentUser.uid, {
+      displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+      photoURL: getProfilePhotoURL(),
+      lastActive: Date.now()
+    });
+
+    // Subscribe to online users
+    const unsubscribeUsers = subscribeToOnlineUsers(
+      projectId,
+      currentUser.uid,
+      (users) => {
+        console.log('Online users:', users.length);
+        setOnlineUsers(users);
+      }
+    );
+
+    // Periodically update user's last active time
+    const activityInterval = setInterval(() => {
+      setUserOnlineStatus(projectId, currentUser.uid, {
+        displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+        photoURL: getProfilePhotoURL(),
+        lastActive: Date.now()
+      });
+    }, 5000); // Update every 5 seconds
+
+    return () => {
+      unsubscribeUsers();
+      cleanupPresence();
+      clearInterval(activityInterval);
+    };
+  }, [projectId, currentUser, getProfilePhotoURL]);
 
   // chat button click
   const handleChatButtonClick = () => {
@@ -104,15 +139,7 @@ export const Editor = observer(() => {
               Live Users
               <span className="h-3 w-3 bg-green-500 rounded-full animate-pulse mr-2" />
             </p>
-            { usersConected.map((user, index) => (
-                <img key={index} className={`h-10 w-10 rounded-full bg-gray-100 -ml-2 hover:scale-110 ring-1
-                            ${index % 4 === 0 ? 'ring-red-500' :
-                              index % 4 === 1 ? 'ring-blue-500' :
-                              index % 4 === 2 ? 'ring-green-500' :
-                              'ring-yellow-500'}`}/>
-
-              ))
-            }
+            <OnlineUserAvatars users={onlineUsers} />
           </div>
           {/* Current Logged in User */}
           {currentUser && (
