@@ -10,6 +10,8 @@ import { getFirestore, collection, getDocs, setDoc, addDoc, deleteDoc, doc, onSn
 import { getFilesFromFolder } from "@/utils/fileUpload";
 import { deepCopy, removeUndefinedFields } from './copy';
 import { diff, addedDiff, deletedDiff, updatedDiff, detailedDiff } from 'deep-object-diff';
+import { useAuth } from '@/contexts/AuthContext';
+
 
 function mergeField(
   element: EditorElement,
@@ -71,16 +73,16 @@ function mergeElementUpdate(original: EditorElement, from: EditorElement, to: Ed
 }
 
 function mergeElementDelete(original: EditorElement, from: EditorElement, to: EditorElement){
-  addToFirestore(to);
+  addElementToFirestore(to);
   return to;
 }
 
-async function addToFirestore(editorElement: EditorElement) {
+async function addElementToFirestore(editorElement: EditorElement) {
   const db = getFirestore();
-  const videoEditorCollection = collection(db, "videoEditor");
+  const collec = collection(db, "videoEditor");
   try {
     if(editorElement.uid == null){
-      const docRef = await addDoc(videoEditorCollection, editorElement);
+      const docRef = await addDoc(collec, editorElement);
       editorElement.uid = docRef.id;
     }else{
       const docRef = doc(db, "videoEditor", editorElement.uid);
@@ -89,6 +91,56 @@ async function addToFirestore(editorElement: EditorElement) {
   } catch (error) {
     alert("Error syncronizing data ");
     return;
+  }
+}
+
+async function addAnimationToFirestore(animation: Animation) {
+  const db = getFirestore();
+  const collec = collection(db, "animations");
+  try {
+    if(animation.uid == null){
+      const docRef = await addDoc(collec, animation);
+      animation.uid = docRef.id;
+    }else{
+      const docRef = doc(db, "animations", animation.uid);
+      await setDoc(docRef, animation);
+    }
+  } catch (error) {
+    alert("Error syncronizing data ");
+    return;
+  }
+}
+
+function uploadElementToFirebase(editorElement: EditorElement){
+  if(editorElement.uid == null){
+    console.log("Element UID is null");
+    return;
+  }
+  try {
+    const db = getFirestore();
+    const docRef = doc(db, "videoEditor", editorElement.uid);
+    const newEle = removeUndefinedFields(deepCopy(editorElement));
+    updateDoc(docRef, newEle)
+        .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
+        .catch((error) => console.error("Error updating document in Firebase:", error));
+  } catch (error) {
+    console.error("Error updating document in Firebase:", error);
+  }
+}
+
+function uploadAnimationToFirebase(animation: Animation){
+  if(animation.uid == null){
+    console.log("Element UID is null");
+    return;
+  }
+  try {
+    const db = getFirestore();
+    const docRef = doc(db, "animations", animation.uid);
+    updateDoc(docRef, animation)
+        .then(() => console.log(`Document with UID ${animation.uid} updated successfully`))
+        .catch((error) => console.error("Error updating document in Firebase:", error));
+  } catch (error) {
+    console.error("Error updating document in Firebase:", error);
   }
 }
 
@@ -194,11 +246,32 @@ export class Store {
     this.images = [...this.images, image];
   }
 
-  addAnimation(animation: Animation) {
+  async addAnimation(animation: Animation, localChange: boolean = true) {
+    if(!localChange){
+      const ele = this.animations.find((e) => e.id === animation.id);
+      if(ele){
+        return;
+      }
+    }
+
+    addAnimationToFirestore(animation);
     this.animations = [...this.animations, animation];
     this.refreshAnimations();
   }
-  updateAnimation(id: string, animation: Animation) {
+  updateAnimation(id: string, animation: Animation, localChange: boolean = true) {
+    if(!localChange){
+      const ele = this.animations.find((e) => e.id === animation.id);
+      if (!ele) {
+        return;
+      }
+      
+      const dif = diff(ele, animation);
+      if (Object.keys(dif).length === 0) {
+        return;
+      }
+    }
+
+    uploadAnimationToFirebase(animation);
     const index = this.animations.findIndex((a) => a.id === id);
     this.animations[index] = animation;
     this.refreshAnimations();
@@ -372,11 +445,30 @@ export class Store {
     }
   }
 
-  removeAnimation(id: string) {
-    this.animations = this.animations.filter(
-      (animation) => animation.id !== id
-    );
-    this.refreshAnimations();
+  async removeAnimation(id: string) {
+    if(id === undefined){
+      alert("Element ID is undefined");
+      return;
+    }
+
+    const ele = this.animations.find((e) => e.id === id);
+    if(!ele || !ele.uid){
+      return;
+    }
+
+    const db = getFirestore();
+    const docRef = doc(db, "animations", ele.uid);
+    try {
+      await deleteDoc(docRef);
+
+      this.animations = this.animations.filter(
+        (animation) => animation.id !== id
+      );
+      this.refreshAnimations();
+    } catch (error) {
+      console.error("Error deleting document from Firebase:", error);
+      return;
+    }
   }
 
   setSelectedElement(selectedElement: EditorElement | null) {
@@ -384,7 +476,7 @@ export class Store {
       if (selectedElement?.fabricObject){
         if(!selectedElement.editPersonsId.includes("1")){
           selectedElement.editPersonsId.push("1");
-          this.uploadToFirebase(selectedElement);
+          uploadElementToFirebase(selectedElement);
         }
         this.canvas.setActiveObject(selectedElement.fabricObject);
       }
@@ -449,7 +541,7 @@ export class Store {
           return;
         }
       }else{
-        this.uploadToFirebase(editorElement);
+        uploadElementToFirebase(editorElement);
       }
     }
     
@@ -459,22 +551,7 @@ export class Store {
     this.refreshElements();
   }
 
-  uploadToFirebase(editorElement: EditorElement){
-    if(editorElement.uid == null){
-      console.log("Element UID is null");
-      return;
-    }
-    try {
-      const db = getFirestore();
-      const docRef = doc(db, "videoEditor", editorElement.uid);
-      const newEditorElement = removeUndefinedFields(deepCopy(editorElement));
-      updateDoc(docRef, newEditorElement)
-          .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
-          .catch((error) => console.error("Error updating document in Firebase:", error));
-    } catch (error) {
-      console.error("Error updating document in Firebase:", error);
-    }
-  }
+  
 
   updateEditorElementTimeFrame(editorElement: EditorElement, timeFrame: Partial<TimeFrame>) {
     if (timeFrame.start != undefined && timeFrame.start < 0) {
@@ -502,10 +579,9 @@ export class Store {
       if(ele){
         return;
       }
-    }else{
-      await addToFirestore(editorElement);
     }
 
+    addElementToFirestore(editorElement);
     this.setEditorElements([...this.editorElements, editorElement]);
     this.refreshElements();
     this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
@@ -1227,6 +1303,26 @@ export class Store {
       });
     });
     this.unsubscribe = unsubscribe;
+
+    onSnapshot(collection(db, "animations"), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const data: Animation = {
+          ...change.doc.data(),
+          uid: change.doc.id,
+        } as Animation;
+        
+        if (change.type === "added") {
+          this.addAnimation(data, false);
+          console.log("New city: ", change.doc.data());
+        }
+        if (change.type === "modified") {
+          
+        }
+        if (change.type === "removed") {
+          
+        }
+      });
+    });
   }
 }
 
