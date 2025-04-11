@@ -10,44 +10,66 @@ export const createProject = async (project: Omit<Project, 'id'>): Promise<strin
 export const fetchUserProjects = async (userId: string, userEmail: string): Promise<Project[]> => {
     try {
         const projectsCollection = collection(projectFirestore, 'projects');
-        const normalizedEmail = userEmail.toLowerCase();
-        // 1. get projects owned by the user
+
+        // Get only projects owned by the user
         const ownerQuery = query(
             projectsCollection,
             where('ownerId', '==', userId)
         );
         const ownerSnapshot = await getDocs(ownerQuery);
-        // 2. get projects shared with the user
-        // use in operator to check if the collaborators field contains the user's email
-        const allProjectsQuery = query(projectsCollection);
-        const allProjectsSnapshot = await getDocs(allProjectsQuery);
-        
-        // 3. merge results and remove duplicates
-        const projectsMap = new Map<string, Project>();
 
-        // add owned projects
+        // Create a map to store owned projects
+        const ownedProjectsMap = new Map<string, Project>();
+
+        // Add owned projects
         ownerSnapshot.forEach(doc => {
             const data = doc.data() as Omit<Project, 'id'>;
-            projectsMap.set(doc.id, { id: doc.id, ...data } as Project);
+            ownedProjectsMap.set(doc.id, { id: doc.id, ...data } as Project);
         });
 
-        // add shared projects
-        allProjectsSnapshot.forEach(doc => {
-            if (!projectsMap.has(doc.id)) {
-                const data = doc.data() as Omit<Project, 'id'>;
-                // check if the project is shared with the current user
-                if (data.collaborators && data.collaborators[normalizedEmail]) {
-                    projectsMap.set(doc.id, { id: doc.id, ...data } as Project);
-                }
-            }
-        });
-
-        // 4. sort by update time
-        const projects = Array.from(projectsMap.values());
-        const sortedProjects = projects.sort((a, b) => b.updatedAt - a.updatedAt);
+        // Sort by update time
+        const ownedProjects = Array.from(ownedProjectsMap.values());
+        const sortedProjects = ownedProjects.sort((a, b) => b.updatedAt - a.updatedAt);
         return sortedProjects;
     } catch (error) {
         console.error('Error fetching user projects:', error);
+        throw error;
+    }
+};
+
+export const fetchSharedProjects = async (userId: string, userEmail: string): Promise<Project[]> => {
+    try {
+        const projectsCollection = collection(projectFirestore, 'projects');
+        const normalizedEmail = userEmail.toLowerCase();
+
+        // Get all projects to check which ones are shared with the user
+        const allProjectsQuery = query(projectsCollection);
+        const allProjectsSnapshot = await getDocs(allProjectsQuery);
+
+        // Create a map to store only shared projects
+        const sharedProjectsMap = new Map<string, Project>();
+
+        // Add only shared projects (exclude owned projects)
+        allProjectsSnapshot.forEach(doc => {
+            const data = doc.data() as Omit<Project, 'id'>;
+
+            // Skip projects owned by the user
+            if (data.ownerId === userId) {
+                return;
+            }
+
+            // Check if the project is shared with the current user
+            if (data.collaborators && data.collaborators[normalizedEmail]) {
+                sharedProjectsMap.set(doc.id, { id: doc.id, ...data } as Project);
+            }
+        });
+
+        // Sort by update time
+        const sharedProjects = Array.from(sharedProjectsMap.values());
+        const sortedProjects = sharedProjects.sort((a, b) => b.updatedAt - a.updatedAt);
+        return sortedProjects;
+    } catch (error) {
+        console.error('Error fetching shared projects:', error);
         throw error;
     }
 };
@@ -66,7 +88,7 @@ export const inviteCollaborator = async (
 ): Promise<void> => {
     const projectRef = doc(projectFirestore, 'projects', projectId);
     const normalizedEmail = userEmail.toLowerCase();
-    
+
     await updateDoc(projectRef, {
         [`collaborators.${normalizedEmail}`]: {
             role,

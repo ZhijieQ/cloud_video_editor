@@ -33,6 +33,13 @@ export const ShareProject: React.FC<ShareProjectProps> = ({
     return re.test(email);
   };
 
+  const handleClose = () => {
+    setEmail('');
+    setError(null);
+    setSuccessMessage(null);
+    onClose();
+  };
+
   const handleShare = async () => {
     if (!email) {
       setError('Please enter an email address');
@@ -57,7 +64,7 @@ export const ShareProject: React.FC<ShareProjectProps> = ({
       // 1. get project document
       const projectRef = doc(projectFirestore, 'projects', projectId);
       const projectSnap = await getDoc(projectRef);
-      
+
       if (!projectSnap.exists()) {
         throw new Error('Project does not exist');
       }
@@ -74,7 +81,7 @@ export const ShareProject: React.FC<ShareProjectProps> = ({
       )) {
         throw new Error('The user is already a project collaborator');
       }
-      
+
       // 2. update collaborators field
       const updatedCollaborators = {
         ...currentCollaborators,
@@ -107,7 +114,7 @@ export const ShareProject: React.FC<ShareProjectProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-lg p-6 w-96">
         <h2 className="text-xl font-bold mb-4 text-white">Share Project</h2>
-        
+
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Email Address
@@ -149,7 +156,7 @@ export const ShareProject: React.FC<ShareProjectProps> = ({
 
         <div className="flex justify-end space-x-3">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 text-gray-300 hover:text-white"
           >
             Cancel
@@ -167,4 +174,4 @@ export const ShareProject: React.FC<ShareProjectProps> = ({
       </div>
     </div>
   );
-}; 
+};
