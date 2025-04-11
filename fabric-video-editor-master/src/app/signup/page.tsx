@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, updateProfile } from "firebase/auth"; //Google OAuth
 import { auth } from "@/utils/firebaseConfig";
+import {randomInt} from "node:crypto";
 
 export default function Signup() {
   const [name, setName] = useState("");
@@ -28,7 +29,6 @@ export default function Signup() {
 
     try {
       // Implement email/password signup with full name
-      console.log("Signup with:", name, email, password);
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
@@ -37,16 +37,11 @@ export default function Signup() {
         await updateProfile(user, {
           displayName: name
         });
-        console.log("User profile updated with name:", name);
       }
-
-      console.log("Signup successful", user);
       window.location.href = "/workspace";
     } catch (error: any) {
-      console.error("Signup failed:", error);
       const errorCode = error.code;
       const errorMessage = error.message;
-      console.log(errorCode, errorMessage);
       setError("Failed to create account. Please try again.");
     } finally {
       setIsLoading(false);
@@ -71,16 +66,16 @@ export default function Signup() {
         // If for some reason the user doesn't have a display name from Google
         // we could set a default or prompt them to add one
         console.log("User doesn't have a display name from Google");
+        await updateProfile(user, {
+          displayName: "User" + randomInt(100000,999999)
+        });
       } else {
         console.log("User's display name from Google:", user.displayName);
         // The display name is already stored in the user object from Google
         // No need to update it separately as it's included in the OAuth profile
       }
-
-      console.log("Google signup successful", user);
       window.location.href = "/workspace";
     } catch (error: any) {
-      console.error("Google signup failed:", error);
       const errorCode = error.code;
       const errorMessage = error.message;
       const email = error.customData?.email;

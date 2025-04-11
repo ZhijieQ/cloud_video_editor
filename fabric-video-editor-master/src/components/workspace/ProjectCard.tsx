@@ -11,7 +11,7 @@ interface ProjectCardProps {
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) => {
     const { currentUser } = useAuth();
     const isOwner = currentUser?.uid === project.ownerId;
-    
+
     // check if the current user is a collaborator
     const userRole = currentUser?.email && project.collaborators?.[currentUser.email.toLowerCase()]?.role;
     const isCollaborator = !!userRole;
@@ -39,8 +39,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) =
         <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
             <div className="flex justify-between items-start mb-4">
                 <div>
-                    <h3 className="text-xl font-semibold">{project.name}</h3>
-                    <span className="text-sm text-gray-400 mt-1">
+                    <h3 className="text-xl font-semibold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">{project.name}</h3>
+                    <span className="text-sm font-semibold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
                         {getRoleText()}
                     </span>
                 </div>
@@ -65,7 +65,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) =
                 </Link>
 
                 <div className="text-sm text-gray-400">
-                    Last updated: {
+                    Created: {
                         (() => {
                             const date = new Date(project.updatedAt);
                             const hours = date.getHours().toString().padStart(2, '0');
@@ -74,8 +74,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) =
                             const day = date.getDate().toString().padStart(2, '0');
                             const year = date.getFullYear();
 
-                            return `${hours}:${minutes} ${month}/${day}/${year}`;
-                        })()
+                            return `${month}/${day}/${year} ${hours}:${minutes}`;
+                        })() as string
                     }
                 </div>
             </div>
