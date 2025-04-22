@@ -583,18 +583,21 @@ export class Store {
     if (!editorElement.projectId){
       editorElement.projectId = this.projectId;
     }
+    debugger
     if(!localChange){
       const ele = this.editorElements.find((e) => e.id === editorElement.id);
       if(ele){
         return;
       }
+      this.setEditorElements([...this.editorElements, editorElement]);
+      this.refreshElements();
+      this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
     }else {
+      this.setEditorElements([...this.editorElements, editorElement]);
+      this.refreshElements();
+      this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
       await addElementToFirestore(editorElement);
     }
-
-    this.setEditorElements([...this.editorElements, editorElement]);
-    this.refreshElements();
-    this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
   }
 
   async removeEditorElement(id: string | undefined) {

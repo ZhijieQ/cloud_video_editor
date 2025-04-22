@@ -34,7 +34,7 @@ export const EditorWithStore = ({ projectId, projectName, userRole, ownerId }: E
       store.setProjectId(projectId);
       store.sync();
     }
-  }, [projectId, store]);
+  }, [projectId]);
 
   return (
     <StoreContext.Provider value={store}>
