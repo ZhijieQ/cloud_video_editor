@@ -32,6 +32,12 @@ importers:
       autoprefixer:
         specifier: 10.4.14
         version: 10.4.14(postcss@8.4.25)
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
+      deep-object-diff:
+        specifier: ^1.1.9
+        version: 1.1.9
       eslint:
         specifier: 8.44.0
         version: 8.44.0
@@ -951,6 +957,9 @@ packages:
     resolution: {integrity: sha512-BS8PfmtDGnrgYdOonGZQdLZslWIeCGFP9tpan0hi1Co2Zr2NKADsvGYA8XxuG/4UWgJ6Cjtv+YJnB6MM69QGlQ==}
     engines: {node: '>= 0.4'}
 
+  date-fns@4.1.0:
+    resolution: {integrity: sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==}
+
   debug@3.2.7:
     resolution: {integrity: sha512-CFjzYYAi4ThfiQvizrFQevTTXHtnCqWfe7x1AhgEscTz6ZbLbfoLRLPugTQyBth6f8ZERVUSyWHFD/7Wu4t1XQ==}
     peerDependencies:
@@ -977,6 +986,9 @@ packages:
 
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
+
+  deep-object-diff@1.1.9:
+    resolution: {integrity: sha512-Rn+RuwkmkDwCi2/oXOFS9Gsr5lJZu/yTGpK7wAaAIE75CC+LCGEZHpY6VQJa/RoJcrmaA/docWJZvYohlNkWPA==}
 
   define-data-property@1.1.4:
     resolution: {integrity: sha512-rBMvIzlpA8v6E+SJZoo++HAYqsLrkg7MSfIinMPFhmkorw7X+dOXVJQs+QT69zGkzMyfDnIMN2Wid1+NbL3T+A==}
@@ -3492,6 +3504,8 @@ snapshots:
       es-errors: 1.3.0
       is-data-view: 1.0.2
 
+  date-fns@4.1.0: {}
+
   debug@3.2.7:
     dependencies:
       ms: 2.1.3
@@ -3509,6 +3523,8 @@ snapshots:
     optional: true
 
   deep-is@0.1.4: {}
+
+  deep-object-diff@1.1.9: {}
 
   define-data-property@1.1.4:
     dependencies:
@@ -3886,6 +3902,8 @@ snapshots:
       '@types/react-dom': 18.2.6
       animejs: 3.2.2
       autoprefixer: 10.4.14(postcss@8.4.25)
+      date-fns: 4.1.0
+      deep-object-diff: 1.1.9
       eslint: 8.44.0
       eslint-config-next: 13.4.9(eslint@8.44.0)(typescript@5.1.6)
       fabric: 5.5.1

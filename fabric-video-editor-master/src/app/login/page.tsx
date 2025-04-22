@@ -3,35 +3,76 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from "firebase/auth"; //Google OAuth
+import { auth } from "@/utils/firebaseConfig";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const [error, setError] = useState("");
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+    setError("");
+
     try {
-      // TODO: Implement actual login functionality
+      // Implement email/password login
       console.log("Login with:", email, password);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Log user information including display name
+      console.log("Login successful", user);
+      if (user.displayName) {
+        console.log("User's display name:", user.displayName);
+      }
+
       // Redirect to editor page after successful login
-      window.location.href = "/editor";
-    } catch (error) {
+      window.location.href = "/workspace";
+    } catch (error: any) {
       console.error("Login failed:", error);
+      const errorCode = error.code;
+      const errorMessage = error.message;
+      console.log(errorCode, errorMessage);
+      setError("Failed to sign in. Please check your credentials and try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    // TODO: Implement Google OAuth login
-    console.log("Login with Google");
+  const handleGoogleLogin = async (e: React.FormEvent) => {
+    // Implement Google OAuth login
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken;
+      const user = result.user;
+
+      // Log user information including display name
+      console.log("Google login successful", user);
+      if (user.displayName) {
+        console.log("User's display name:", user.displayName);
+      }
+
+      window.location.href = "/workspace";
+    } catch (error: any) {
+      console.error("Google login failed:", error);
+      const errorCode = error.code;
+      const errorMessage = error.message;
+      const email = error.customData?.email;
+      const credential = GoogleAuthProvider.credentialFromError(error);
+      console.log(errorCode, errorMessage, email, credential);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -39,10 +80,10 @@ export default function Login() {
       {/* Left section - Logo and Banner */}
       <div className="hidden md:flex md:w-1/2 flex-col items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-blue-500/40 to-purple-600/40 z-0"></div>
-        <Image 
-          src="https://images.unsplash.com/photo-1536240478700-b869070f9279?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" 
-          alt="Video Editing" 
-          fill 
+        <Image
+          src="https://images.unsplash.com/photo-1536240478700-b869070f9279?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80"
+          alt="Video Editing"
+          fill
           className="object-cover z-[-1]"
         />
         <div className="z-10 text-center">
@@ -62,6 +103,12 @@ export default function Login() {
             <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
             <p className="text-gray-400">Sign in to continue to your account</p>
           </div>
+
+          {error && (
+            <div className="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
@@ -148,4 +195,4 @@ export default function Login() {
       </div>
     </main>
   );
-} 
+}

@@ -40,6 +40,7 @@ export const AnimationsPanel = observer(() => {
           onClick={() => {
             store.addAnimation({
               id: getUid(),
+              uid: null,
               type: "fadeIn",
               targetId: selectedElement?.id ?? "",
               duration: 1000,
@@ -56,6 +57,7 @@ export const AnimationsPanel = observer(() => {
           onClick={() => {
             store.addAnimation({
               id: getUid(),
+              uid: null,
               type: "fadeOut",
               targetId: selectedElement?.id ?? "",
               duration: 1000,
@@ -72,6 +74,7 @@ export const AnimationsPanel = observer(() => {
           onClick={() => {
             store.addAnimation({
               id: getUid(),
+              uid: null,
               type: "slideIn",
               targetId: selectedElement?.id ?? "",
               duration: 1000,
@@ -92,6 +95,7 @@ export const AnimationsPanel = observer(() => {
           onClick={() => {
             store.addAnimation({
               id: getUid(),
+              uid: null,
               type: "slideOut",
               targetId: selectedElement?.id ?? "",
               duration: 1000,
@@ -112,6 +116,7 @@ export const AnimationsPanel = observer(() => {
           onClick={() => {
             store.addAnimation({
               id: getUid(),
+              uid: null,
               type: "breathe",
               targetId: selectedElement?.id ?? "",
               duration: 1000,
