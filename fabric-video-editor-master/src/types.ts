@@ -11,7 +11,6 @@ export type EditorElementBase<T extends string, P> = {
   timeFrame: TimeFrame;
   properties: P;          // pending, audio y video y image es parecido.
   editPersonsId: string[];// pending
-  projectId?: string;     // 项目ID，用于区分不同项目的元素
 };
 export type VideoEditorElement = EditorElementBase<
   "video",

@@ -71,61 +71,75 @@ function mergeElementUpdate(original: EditorElement, from: EditorElement, to: Ed
   return element;
 }
 
-function mergeElementDelete(original: EditorElement, from: EditorElement, to: EditorElement){
-  addElementToFirestore(to);
+function mergeElementDelete(original: EditorElement, from: EditorElement, to: EditorElement, projectId: string | null){
+  addElementToFirestore(to, projectId);
   return to;
 }
 
-async function addElementToFirestore(editorElement: EditorElement) {
+async function addElementToFirestore(editorElement: EditorElement, projectId: string | null) {
+  if (!projectId) {
+    console.error('Project ID is null. Cannot add element to Firestore.');
+    return;
+  }
+
   const db = getFirestore();
-  const collec = collection(db, "videoEditor");
+  const collec = collection(db, `projects/${projectId}/videoEditor`);
   try {
-    if (!editorElement.projectId){
-      editorElement.projectId = 'global-project';
-    }
-    if(editorElement.uid == null){
+    if (editorElement.uid == null) {
       const docRef = await addDoc(collec, editorElement);
       editorElement.uid = docRef.id;
-    }else{
-      const docRef = doc(db, "videoEditor", editorElement.uid);
+    } else {
+      const docRef = doc(db, `projects/${projectId}/videoEditor`, editorElement.uid);
       await setDoc(docRef, editorElement);
     }
   } catch (error) {
     console.error('Error adding element to Firestore:', error);
-    alert("Error syncronizing data ");
+    alert("Error synchronizing data.");
     return;
   }
 }
 
-async function addAnimationToFirestore(animation: Animation) {
+async function addAnimationToFirestore(animation: Animation, projectId: string | null) {
+  if (!projectId) {
+    console.error('Project ID is null. Cannot add animation to Firestore.');
+    return;
+  }
+
   const db = getFirestore();
-  const collec = collection(db, "animations");
+  const collec = collection(db, `projects/${projectId}/animations`);
   try {
-    if(animation.uid == null){
+    if (animation.uid == null) {
       const docRef = await addDoc(collec, animation);
       animation.uid = docRef.id;
-    }else{
-      const docRef = doc(db, "animations", animation.uid);
+    } else {
+      const docRef = doc(db, `projects/${projectId}/animations`, animation.uid);
       await setDoc(docRef, animation);
     }
   } catch (error) {
-    alert("Error syncronizing data ");
+    console.error('Error adding animation to Firestore:', error);
+    alert("Error synchronizing animation data.");
     return;
   }
 }
 
-function uploadElementToFirebase(editorElement: EditorElement){
-  if(editorElement.uid == null){
+function uploadElementToFirebase(editorElement: EditorElement, projectId: string | null) {
+  if (!projectId) {
+    console.error("Project ID is null. Cannot upload element to Firebase.");
+    return;
+  }
+
+  if (editorElement.uid == null) {
     console.log("Element UID is null");
     return;
   }
+
   try {
     const db = getFirestore();
-    const docRef = doc(db, "videoEditor", editorElement.uid);
+    const docRef = doc(db, `projects/${projectId}/videoEditor`, editorElement.uid);
     const newEle = removeUndefinedFields(deepCopy(editorElement));
     updateDoc(docRef, newEle)
-        .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
-        .catch((error) => console.error("Error updating document in Firebase:", error));
+      .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
+      .catch((error) => console.error("Error updating document in Firebase:", error));
   } catch (error) {
     console.error("Error updating document in Firebase:", error);
   }
@@ -168,7 +182,7 @@ export class Store {
   unsubscribe: () => void;
 
   // Project ID to separate different projects
-  projectId: string;
+  projectId: string | null;
 
   maxTime: number
   animations: Animation[]
@@ -200,7 +214,7 @@ export class Store {
     this.order = 0;
     this.pendingMerge = {};
     this.unsubscribe = () => { };
-    this.projectId = 'global-project';
+    this.projectId = null;
     makeAutoObservable(this);
   }
 
@@ -266,7 +280,7 @@ export class Store {
       }
     }
 
-    addAnimationToFirestore(animation);
+    addAnimationToFirestore(animation, this.projectId);
     this.animations = [...this.animations, animation];
     this.refreshAnimations();
   }
@@ -488,7 +502,7 @@ export class Store {
       if (selectedElement?.fabricObject){
         if(!selectedElement.editPersonsId.includes("1")){
           selectedElement.editPersonsId.push("1");
-          uploadElementToFirebase(selectedElement);
+          uploadElementToFirebase(selectedElement, this.projectId);
         }
         this.canvas.setActiveObject(selectedElement.fabricObject);
       }
@@ -523,7 +537,7 @@ export class Store {
     if(type == 'updated'){
       return mergeElementUpdate(original, from, to);
     }else{
-      return mergeElementDelete(original, from, to);
+      return mergeElementDelete(original, from, to, this.projectId);
     }
   }
 
@@ -550,7 +564,7 @@ export class Store {
           return;
         }
       }else{
-        uploadElementToFirebase(editorElement);
+        uploadElementToFirebase(editorElement, this.projectId);
       }
     }
     this.setEditorElements(this.editorElements.map((element) =>
@@ -580,10 +594,6 @@ export class Store {
   }
 
   async addEditorElement(editorElement: EditorElement, localChange: boolean = true) {
-    if (!editorElement.projectId){
-      editorElement.projectId = this.projectId;
-    }
-    debugger
     if(!localChange){
       const ele = this.editorElements.find((e) => e.id === editorElement.id);
       if(ele){
@@ -596,32 +606,39 @@ export class Store {
       this.setEditorElements([...this.editorElements, editorElement]);
       this.refreshElements();
       this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
-      await addElementToFirestore(editorElement);
+      await addElementToFirestore(editorElement, this.projectId);
     }
   }
 
   async removeEditorElement(id: string | undefined) {
-    if(id === undefined) {
+    if (id === undefined) {
       alert("Element ID is undefined");
       return;
     }
-
+  
     const elementToRemove = this.editorElements.find(
       (editorElement) => editorElement.id === id
     );
-
+  
     if (!elementToRemove || !elementToRemove.uid) {
       return;
     }
-
+  
+    if (!this.projectId) {
+      console.error("Project ID is null. Cannot remove element from Firestore.");
+      return;
+    }
+  
     const db = getFirestore();
-    const docRef = doc(db, "videoEditor", elementToRemove.uid);
+    const docRef = doc(db, `projects/${this.projectId}/videoEditor`, elementToRemove.uid);
     try {
       await deleteDoc(docRef);
-
-      this.setEditorElements(this.editorElements.filter(
-        (editorElement) => editorElement.id !== id
-      ));
+  
+      this.setEditorElements(
+        this.editorElements.filter(
+          (editorElement) => editorElement.id !== id
+        )
+      );
       this.refreshElements();
     } catch (error) {
       console.error("Error deleting document from Firebase:", error);
@@ -726,8 +743,7 @@ export class Store {
           }
         },
         editPersonsId: [
-        ],
-        projectId: this.projectId,
+        ]
       },
     );
   }
@@ -766,8 +782,7 @@ export class Store {
         }
       },
       editPersonsId: [
-      ],
-      projectId: this.projectId,
+      ]
     });
   }
 
@@ -803,8 +818,7 @@ export class Store {
           src: audioElement.src,
         },
         editPersonsId: [
-        ],
-        projectId: this.projectId,
+        ]
       },
     );
 
@@ -844,8 +858,7 @@ export class Store {
           splittedTexts: [],
         },
         editPersonsId: [
-        ],
-        projectId: this.projectId,
+        ]
       },
     );
   }
@@ -1207,63 +1220,44 @@ export class Store {
     store.canvas.renderAll();
   }
 
-  async sync(){
-    getFilesFromFolder('videoEditor/images')
+  async sync() {
+    if (!this.projectId) {
+      console.error("Project ID is null. Cannot sync data.");
+      return;
+    }
+  
+    getFilesFromFolder(`projects/${this.projectId}/videoEditor/images`)
       .then((urls) => {
         urls.forEach((url) => {
           this.images.push(url);
         });
       })
       .catch((error) => {
-        console.error("Error fetching files:", error);
+        console.error("Error fetching image files:", error);
       });
-
-    getFilesFromFolder('videoEditor/videos')
+  
+    getFilesFromFolder(`projects/${this.projectId}/videoEditor/videos`)
       .then((urls) => {
         urls.forEach((url) => {
           this.videos.push(url);
         });
       })
       .catch((error) => {
-        console.error("Error fetching files:", error);
+        console.error("Error fetching video files:", error);
       });
-
-    getFilesFromFolder('videoEditor/audios')
+  
+    getFilesFromFolder(`projects/${this.projectId}/videoEditor/audios`)
       .then((urls) => {
         urls.forEach((url) => {
           this.audios.push(url);
         });
       })
       .catch((error) => {
-        console.error("Error fetching files:", error);
+        console.error("Error fetching audio files:", error);
       });
-
+  
     const db = getFirestore();
-    // const videoEditorCollection = collection(db, "videoEditor");
-    // const querySnapshot = await getDocs(videoEditorCollection);
-    // querySnapshot.forEach((doc) => {
-    //   const data = doc.data();
-    //   const element: EditorElement = {
-    //     uid: doc.id,
-    //     id: data.id,
-    //     name: data.name,
-    //     type: data.type,
-    //     order: data.order,
-    //     placement: data.placement,
-    //     timeFrame: data.timeFrame,
-    //     properties: data.properties,
-    //     editPersonsId: data.editPersonsId,
-    //   };
-    //   this.addEditorElement(element, false);
-    // });
-
-    // use project id to filter elements
-    console.log('Syncing with projectId:', this.projectId);
-    const projectElementsQuery = query(
-        collection(db, "videoEditor"),
-        where("projectId", "==", this.projectId)
-    );
-    const unsubscribe = onSnapshot(projectElementsQuery, (snapshot) => {
+    onSnapshot(collection(db, `projects/${this.projectId}/videoEditor`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data = change.doc.data();
         const element: EditorElement = {
@@ -1279,69 +1273,67 @@ export class Store {
         };
         if (change.type === "added") {
           this.addEditorElement(element, false);
-          console.log("New city: ", change.doc.data());
+          console.log("New element: ", change.doc.data());
         }
         if (change.type === "modified") {
-          // TODO: change
-          if(this.selectedElement?.id === element.id){
+          if (this.selectedElement?.id === element.id) {
             const dif = diff(this.selectedElement, element);
-            if ('fabricObject' in dif) {
+            if ("fabricObject" in dif) {
               delete (dif as { fabricObject?: unknown }).fabricObject;
             }
-            if(Object.keys(dif).length === 0){
-              return
+            if (Object.keys(dif).length === 0) {
+              return;
             }
-            if(this.pendingMerge[element.id] == undefined){
+            if (this.pendingMerge[element.id] == undefined) {
               this.pendingMerge[element.id] = {
                 from: this.selectedElement,
                 to: element,
-                type: "updated"
-              }
-            }else{
+                type: "updated",
+              };
+            } else {
               this.pendingMerge[element.id].to = element;
-              this.pendingMerge[element.id].type = "updated"
+              this.pendingMerge[element.id].type = "updated";
             }
-          }else{
+          } else {
             this.updateEditorElement(element, false);
-            console.log("Modified city: ", change.doc.data());
+            console.log("Modified element: ", change.doc.data());
           }
         }
         if (change.type === "removed") {
-          if(this.selectedElement?.id === element.id){
-            if(this.pendingMerge[element.id] == undefined){
+          if (this.selectedElement?.id === element.id) {
+            if (this.pendingMerge[element.id] == undefined) {
               this.pendingMerge[element.id] = {
                 from: this.selectedElement,
                 to: element,
-                type: "deleted"
-              }
-            }else{
+                type: "deleted",
+              };
+            } else {
               this.pendingMerge[element.id].to = element;
-              this.pendingMerge[element.id].type = "deleted"
+              this.pendingMerge[element.id].type = "deleted";
             }
-          }else{
+          } else {
             this.removeEditorElement(change.doc.data().id);
           }
         }
       });
     });
-    this.unsubscribe = unsubscribe;
-
-    onSnapshot(collection(db, "animations"), (snapshot) => {
+  
+    onSnapshot(collection(db, `projects/${this.projectId}/animations`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data: Animation = {
           ...change.doc.data(),
           uid: change.doc.id,
         } as Animation;
-
+  
         if (change.type === "added") {
           this.addAnimation(data, false);
-          console.log("New city: ", change.doc.data());
+          console.log("New animation: ", change.doc.data());
         }
         if (change.type === "modified") {
-
+          console.log("Modified animation: ", change.doc.data());
         }
         if (change.type === "removed") {
-
+          console.log("Removed animation: ", change.doc.data());
         }
       });
     });
