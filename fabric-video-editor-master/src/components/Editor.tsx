@@ -26,7 +26,8 @@ interface EditorWithStoreProps {
 }
 
 export const EditorWithStore = ({ projectId, projectName, userRole, ownerId }: EditorWithStoreProps) => {
-  const [store] = useState(new Store());
+  const { currentUser } = useAuth();
+  const [store] = useState(new Store(currentUser));
 
   // Use project id to inicial Store
   useEffect(() => {

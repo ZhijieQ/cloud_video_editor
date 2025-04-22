@@ -11,6 +11,7 @@ import { getFilesFromFolder } from "@/utils/fileUpload";
 import { deepCopy, removeUndefinedFields } from './copy';
 import { diff, addedDiff, deletedDiff, updatedDiff, detailedDiff } from 'deep-object-diff';
 import { useAuth } from '@/contexts/AuthContext';
+import { User } from 'firebase/auth';
 
 function mergeField(
   element: EditorElement,
@@ -183,6 +184,7 @@ export class Store {
 
   // Project ID to separate different projects
   projectId: string | null;
+  user: User | null;
 
   maxTime: number
   animations: Animation[]
@@ -195,7 +197,7 @@ export class Store {
   possibleVideoFormats: string[] = ['mp4', 'webm'];
   selectedVideoFormat: 'mp4' | 'webm';
 
-  constructor() {
+  constructor(user: User | null) {
     this.canvas = null;
     this.videos = [];
     this.images = [];
@@ -215,6 +217,7 @@ export class Store {
     this.pendingMerge = {};
     this.unsubscribe = () => { };
     this.projectId = null;
+    this.user = user;
     makeAutoObservable(this);
   }
 
@@ -500,14 +503,14 @@ export class Store {
   setSelectedElement(selectedElement: EditorElement | null) {
     if (this.canvas) {
       if (selectedElement?.fabricObject){
-        if(!selectedElement.editPersonsId.includes("1")){
-          selectedElement.editPersonsId.push("1");
+        if(!selectedElement.editPersonsId.includes(this.user!.uid)){
+          selectedElement.editPersonsId.push(this.user!.uid);
           uploadElementToFirebase(selectedElement, this.projectId);
         }
         this.canvas.setActiveObject(selectedElement.fabricObject);
       }
       else{
-        if(this.selectedElement?.editPersonsId.includes("1")){
+        if(this.selectedElement?.editPersonsId.includes(this.user!.uid)){
           const element = this.mergeElement(
             this.pendingMerge[this.selectedElement.id]?.from,
             this.selectedElement,
@@ -515,7 +518,7 @@ export class Store {
             this.pendingMerge[this.selectedElement.id]?.type
           );
           if(element){
-            element.editPersonsId.filter((id: string) => id !== "1");
+            element.editPersonsId.filter((id: string) => id !== this.user!.uid);
             delete this.pendingMerge[this.selectedElement.id];
             this.updateEditorElement(element);
           }
