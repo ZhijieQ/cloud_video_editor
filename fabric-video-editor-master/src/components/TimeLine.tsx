@@ -11,9 +11,9 @@ export const TimeLine = observer(() => {
   return (
     <div className="flex flex-col">
       <SeekPlayer />
-      <div className="flex-1 relative ">
+      <div className="flex-1 relative">
         {store.editorElements.map((element) => {
-          return <TimeFrameView key={element.id} element={element} />;
+          return <TimeFrameView ide={`barrita_${element.id}`} key={element.id} element={element} />;
         })}
         <div
           className="w-[2px] bg-red-400 absolute top-0 bottom-0 z-20"

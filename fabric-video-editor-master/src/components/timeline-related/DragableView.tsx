@@ -7,6 +7,7 @@ function DragableView(props: {
   style?: React.CSSProperties;
   value: number;
   total: number;
+  container_id: string;
   onChange: (value: number) => void;
 }) {
   const ref = useRef<{
