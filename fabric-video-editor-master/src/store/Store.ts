@@ -544,9 +544,15 @@ export class Store {
     }
   }
 
-  setEditorElements(editorElements: EditorElement[]) {
+  setEditorElements(editorElements: EditorElement[], reordered: boolean = false) {
+    // TODO: editorElements ordenalo basado en .order
     this.editorElements = editorElements;
     this.updateSelectedElement();
+    if(reordered){
+      editorElements.map((e) => {
+        this.updateEditorElement(e);
+      })
+    }
     this.refreshElements();
     // this.refreshAnimations();
   }
@@ -570,7 +576,8 @@ export class Store {
         uploadElementToFirebase(editorElement, this.projectId);
       }
     }
-    this.setEditorElements(this.editorElements.map((element) =>
+    const elementos = this.editorElements.slice().sort((a, b) => a.order - b.order)
+    this.setEditorElements(elementos.map((element) =>
       element.id === editorElement.id ? editorElement : element
     ));
     this.refreshElements();
@@ -724,7 +731,7 @@ export class Store {
         uid: null,
         name: `Media(video) ${index + 1}`,
         type: "video",
-        order: this.order++,
+        order: this.editorElements.length,
         placement: {
           x: 0,
           y: 0,
@@ -763,7 +770,7 @@ export class Store {
       uid: null,
       name: `Media(image) ${index + 1}`,
       type: "image",
-      order: this.order++,
+      order: this.editorElements.length,
       placement: {
         x: 0,
         y: 0,
@@ -802,7 +809,7 @@ export class Store {
         uid: null,
         name: `Media(audio) ${index + 1}`,
         type: "audio",
-        order: this.order++,
+        order: this.editorElements.length,
         placement: {
           x: 0,
           y: 0,
@@ -840,7 +847,7 @@ export class Store {
         uid: null,
         name: `Text ${index + 1}`,
         type: "text",
-        order: this.order++,
+        order: this.editorElements.length,
         placement: {
           x: 0,
           y: 0,

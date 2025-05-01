@@ -15,7 +15,7 @@ export const Resources = observer(() => {
   const store = React.useContext(StoreContext);
   const selectedMenuOption = store.selectedMenuOption;
   return (
-    <div className="bg-slate-200 rounded-l-2xl h-full">
+    <div className="bg-slate-200 rounded-l-2xl h-full z-10">
       {selectedMenuOption === "Video" ? <VideoResourcesPanel /> : null}
       {selectedMenuOption === "Audio" ? <AudioResourcesPanel /> : null}
       {selectedMenuOption === "Image" ? <ImageResourcesPanel /> : null}

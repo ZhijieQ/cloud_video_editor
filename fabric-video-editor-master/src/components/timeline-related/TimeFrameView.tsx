@@ -83,9 +83,7 @@ export const TimeFrameView = observer((props: { element: EditorElement, ide: str
           className={`bg-white border-2 border-blue-400 w-[10px] h-[10px] mt-[calc(25px/2)] translate-y-[-50%] transform translate-x-[-50%] ${disabledCursor}`}
         ></div>
       </DragableView>
-
-
-      <div className={`absolute p-5 bg-purple-700 z-50 rounded-full left-0 top-1/2 transform -translate-y-1/2 -ml-10 ${isSelected ? 'block': 'hidden'}`}/>
+      
     </div>
   );
 });
