@@ -9,7 +9,9 @@ import { toBlobURL } from '@ffmpeg/util';
 import { getFirestore, collection, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { getFilesFromFolder } from "@/utils/fileUpload";
 import { User } from 'firebase/auth';
-import { deepCopy, removeUndefinedFields, mergeElementUpdate, mergeElementDelete, addElementToFirestore, addAnimationToFirestore, uploadElementToFirebase, uploadAnimationToFirebase} from '@/utils/utils';
+import { deepCopy, removeUndefinedFields, mergeElementUpdate, mergeElementDelete,
+  addElementToFirestore, addAnimationToFirestore, uploadElementToFirebase,
+  addFileUrlsToFirestore, uploadAnimationToFirebase} from '@/utils/utils';
 import { diff } from 'deep-object-diff';
 import { uploadFile } from "@/utils/fileUpload";
 
@@ -37,6 +39,7 @@ export class Store {
   // Project ID to separate different projects
   projectId: string | null;
   user: User | null;
+  onlineUsers: any[];
 
   maxTime: number
   animations: Animation[]
@@ -71,12 +74,17 @@ export class Store {
     this.unsubscribe = () => { };
     this.projectId = null;
     this.user = user;
+    this.onlineUsers = [];
     makeAutoObservable(this);
   }
 
   // set project ID
   setProjectId(projectId: string) {
     this.projectId = projectId;
+  }
+
+  setOnlineUsers(onlineUsers: any[]) {
+    this.onlineUsers = onlineUsers;
   }
 
   get currentTimeInMs() {
@@ -119,26 +127,45 @@ export class Store {
   }
 
   async addVideoResourceFile(file: File) {
-    const fileURL = await uploadFile(file, `projects/${this.projectId}/videoEditor/videos`);
+    const fileURL = await uploadFile(file, `projects/${this.projectId}/videos`);
     this.addVideoResource(fileURL);
   }
   async addAudioResourceFile(file: File) {
-    const fileURL = await uploadFile(file, `projects/${this.projectId}/videoEditor/audios`);
+    const fileURL = await uploadFile(file, `projects/${this.projectId}/audios`);
     this.addAudioResource(fileURL);
   }
   async addImageResourceFile(file: File) {
-    const fileURL = await uploadFile(file, `projects/${this.projectId}/videoEditor/images`);
+    const fileURL = await uploadFile(file, `projects/${this.projectId}/images`);
     this.addImageResource(fileURL);
   }
 
-  addVideoResource(video: string) {
+  addVideoResource(video: string, localChange: boolean = true) {
+    if (this.videos.includes(video)) {
+      return;
+    }
     this.videos = [...this.videos, video];
+    if(localChange){
+      addFileUrlsToFirestore(video, this.projectId!, 'videos');
+    }
   }
-  addAudioResource(audio: string) {
+  addAudioResource(audio: string, localChange: boolean = true) {
+    if (this.audios.includes(audio)) {
+      return;
+    }
     this.audios = [...this.audios, audio];
+    if(localChange){
+      addFileUrlsToFirestore(audio, this.projectId!, 'audios');
+    }
   }
-  addImageResource(image: string) {
+  addImageResource(image: string, localChange: boolean = true) {
+    if (this.images.includes(image)) {
+      return;
+    }
     this.images = [...this.images, image];
+    if(localChange){
+      debugger
+      addFileUrlsToFirestore(image, this.projectId!, 'images');
+    }
   }
 
   async addAnimation(animation: Animation, localChange: boolean = true) {
@@ -372,6 +399,7 @@ export class Store {
   }
 
   setSelectedElement(selectedElement: EditorElement | null) {
+    var refresh = false;
     if (this.canvas) {
       if (selectedElement?.fabricObject){
         if(!selectedElement.editPersonsId.includes(this.user!.uid)){
@@ -406,12 +434,14 @@ export class Store {
             //   return element;
             // });
             selectedElement = this.pendingMerge[this.selectedElement.id]?.to;
+            refresh = true;
           }
         }
         this.canvas.discardActiveObject();
       }
     }
     this.selectedElement = selectedElement;
+    return refresh;
   }
   updateSelectedElement() {
     this.selectedElement = this.editorElements.find((element) => element.id === this.selectedElement?.id) ?? null;
@@ -438,6 +468,7 @@ export class Store {
 
   updateEditorElement(editorElement: EditorElement, localChange: boolean = true) {
     if(this.conflit[editorElement.id] != undefined){
+      debugger
       this.conflit[editorElement.id] = editorElement;
       return;
     }
@@ -460,11 +491,10 @@ export class Store {
         uploadElementToFirebase(editorElement, this.projectId);
       }
     }
-    const elementos = this.editorElements.slice().sort((a, b) => a.order - b.order)
-    this.setEditorElements(elementos.map((element) =>
+    this.setEditorElements(this.editorElements.map((element) =>
       element.id === editorElement.id ? editorElement : element
     ));
-    this.refreshElements();
+    //this.refreshElements();
   }
 
   updateEditorElementTimeFrame(editorElement: EditorElement, timeFrame: Partial<TimeFrame>) {
@@ -915,6 +945,7 @@ export class Store {
   }
 
   refreshElements() {
+    var refresh = false;
     const store = this;
     if (!store.canvas) return;
     const canvas = store.canvas;
@@ -924,11 +955,7 @@ export class Store {
     allElements = allElements.sort((a, b) => a.order - b.order);
     for (let index = 0; index < allElements.length; index++) {
       const element = allElements[index];
-      if (element.fabricObject) {
-        element.fabricObject.on("selected", function (e) {
-          store.setSelectedElement(element)
-        });
-      }
+      
       
       switch (element.type) {
         case "video": {
@@ -1118,7 +1145,22 @@ export class Store {
           throw new Error("Not implemented");
         }
       }
-      
+      if (element.fabricObject) {
+        element.fabricObject.on("selected", function (e) {
+          if(store.setSelectedElement(element)){
+            refresh = true;
+            return;
+          }
+        });
+      }
+      if(refresh){
+        break;  
+      }
+    }
+
+    if(refresh){
+      this.refreshElements()
+      return;
     }
     const selectedEditorElement = store.selectedElement;
     if (selectedEditorElement && selectedEditorElement.fabricObject) {
@@ -1135,37 +1177,71 @@ export class Store {
       return;
     }
   
-    getFilesFromFolder(`projects/${this.projectId}/videoEditor/images`)
-      .then((urls) => {
-        urls.forEach((url) => {
-          this.images.push(url);
-        });
-      })
-      .catch((error) => {
-        console.error("Error fetching image files:", error);
-      });
+    // getFilesFromFolder(`projects/${this.projectId}/videoEditor/images`)
+    //   .then((urls) => {
+    //     urls.forEach((url) => {
+    //       this.images.push(url);
+    //     });
+    //   })
+    //   .catch((error) => {
+    //     console.error("Error fetching image files:", error);
+    //   });
   
-    getFilesFromFolder(`projects/${this.projectId}/videoEditor/videos`)
-      .then((urls) => {
-        urls.forEach((url) => {
-          this.videos.push(url);
-        });
-      })
-      .catch((error) => {
-        console.error("Error fetching video files:", error);
-      });
+    // getFilesFromFolder(`projects/${this.projectId}/videoEditor/videos`)
+    //   .then((urls) => {
+    //     urls.forEach((url) => {
+    //       this.videos.push(url);
+    //     });
+    //   })
+    //   .catch((error) => {
+    //     console.error("Error fetching video files:", error);
+    //   });
   
-    getFilesFromFolder(`projects/${this.projectId}/videoEditor/audios`)
-      .then((urls) => {
-        urls.forEach((url) => {
-          this.audios.push(url);
-        });
-      })
-      .catch((error) => {
-        console.error("Error fetching audio files:", error);
-      });
+    // getFilesFromFolder(`projects/${this.projectId}/videoEditor/audios`)
+    //   .then((urls) => {
+    //     urls.forEach((url) => {
+    //       this.audios.push(url);
+    //     });
+    //   })
+    //   .catch((error) => {
+    //     console.error("Error fetching audio files:", error);
+    //   });
+
   
     const db = getFirestore();
+    onSnapshot(collection(db, `projects/${this.projectId}/videos`), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const data: string = change.doc.data().url as unknown as string;
+        
+        if (change.type === "added") {
+          this.addVideoResource(data, false);
+          console.log("New animation: ", change.doc.data());
+        }
+      });
+    });
+
+    onSnapshot(collection(db, `projects/${this.projectId}/audios`), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const data: string = change.doc.data().url as unknown as string;
+        
+        if (change.type === "added") {
+          this.addAudioResource(data, false);
+          console.log("New animation: ", change.doc.data());
+        }
+      });
+    });
+
+    onSnapshot(collection(db, `projects/${this.projectId}/images`), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const data: string = change.doc.data().url as unknown as string;
+        
+        if (change.type === "added") {
+          this.addImageResource(data, false);
+          console.log("New animation: ", change.doc.data());
+        }
+      });
+    });
+
     onSnapshot(collection(db, `projects/${this.projectId}/videoEditor`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data = change.doc.data();

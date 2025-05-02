@@ -77,13 +77,14 @@ export const Editor = observer((props: EditorProps) => {
       photoURL: getProfilePhotoURL(),
       lastActive: Date.now()
     });
-
+    
     // Subscribe to online users
     const unsubscribeUsers = subscribeToOnlineUsers(
       projectId,
       currentUser.uid,
       (users) => {
         setOnlineUsers(users);
+        store.setOnlineUsers(users);
       }
     );
 

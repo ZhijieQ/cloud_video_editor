@@ -141,6 +141,18 @@ const mergeElementDelete = function (original: EditorElement, from: EditorElemen
   return to;
 };
 
+const addFileUrlsToFirestore = async function (url: string, projectId: string, path: string) {
+  const db = getFirestore();
+  const collec = collection(db, `projects/${projectId}/${path}`);
+  
+  try {
+    const docRef = await addDoc(collec, { url });
+    console.log(`URL added successfully with ID: ${docRef.id}`);
+  } catch (error) {
+    console.error('Error adding URL to Firestore:', error);
+  }
+};
+
 const addElementToFirestore = async function (editorElement: EditorElement, projectId: string | null) {
   if (!projectId) {
     console.error('Project ID is null. Cannot add element to Firestore.');
@@ -240,4 +252,5 @@ export {
   addAnimationToFirestore,
   uploadElementToFirebase,
   uploadAnimationToFirebase,
+  addFileUrlsToFirestore
 };
