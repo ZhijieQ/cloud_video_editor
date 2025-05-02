@@ -4,7 +4,6 @@ import { StoreContext } from "@/store";
 import { observer } from "mobx-react";
 import { ImageResource } from "../entity/ImageResource";
 import { UploadButton } from "../shared/UploadButton";
-import { uploadFile } from "@/utils/fileUpload";
 
 export const ImageResourcesPanel = observer(() => {
   const store = React.useContext(StoreContext);
@@ -14,11 +13,7 @@ export const ImageResourcesPanel = observer(() => {
     // store.addImageResource(URL.createObjectURL(file));
 
     try {
-      // Upload the file and get its URL
-      const fileURL = await uploadFile(file, "videoEditor/images");
-  
-      // Add the file's URL to the store
-      store.addImageResource(fileURL);
+      store.addImageResourceFile(file);
     } catch (error) {
       console.error("Error uploading file:", error);
     }

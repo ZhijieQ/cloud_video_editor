@@ -4,7 +4,6 @@ import { StoreContext } from "@/store";
 import { observer } from "mobx-react";
 import { AudioResource } from "../entity/AudioResource";
 import { UploadButton } from "../shared/UploadButton";
-import { uploadFile } from "@/utils/fileUpload";
 
 export const AudioResourcesPanel = observer(() => {
   const store = React.useContext(StoreContext);
@@ -14,11 +13,7 @@ export const AudioResourcesPanel = observer(() => {
     // store.addAudioResource(URL.createObjectURL(file));
 
     try {
-      // Upload the file and get its URL
-      const fileURL = await uploadFile(file, "videoEditor/audios");
-  
-      // Add the file's URL to the store
-      store.addAudioResource(fileURL);
+      store.addAudioResourceFile(file);
     } catch (error) {
       console.error("Error uploading file:", error);
     }

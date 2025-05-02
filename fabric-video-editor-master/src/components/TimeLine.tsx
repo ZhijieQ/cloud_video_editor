@@ -56,6 +56,7 @@ const SortableTimeFrameView = ({ element }: { element: any }) => {
 export const TimeLine = observer(() => {
   const store = React.useContext(StoreContext);
   const sensors = useSensors(useSensor(PointerSensor));
+  var allElements = [...store.editorElements, ...Object.values(store.conflit)].sort((a, b) => a.order - b.order);
 
   const percentOfCurrentTime = (store.currentTimeInMs / store.maxTime) * 100;
 
@@ -67,12 +68,18 @@ export const TimeLine = observer(() => {
     const newIndex = store.editorElements.findIndex((el) => el.id === over.id);
 
     const reordered = arrayMove(store.editorElements.slice(), oldIndex, newIndex);
-    // TODO: almacena la lista de los elem que se ha cambiado y llama setEditorElements.
-    const updatedElements = reordered.map((el, idx) => ({
-      ...el,
-      order: idx,
-    }));
-    store.setEditorElements(updatedElements, true);
+    // Update the order attribute and collect changed elements
+    const changedElements = reordered.reduce((changed, el, idx) => {
+      if (el.order !== idx) {
+        changed.push({ ...el, order: idx });
+      }
+      return changed;
+    }, [] as typeof store.editorElements);
+    
+    // Iterate through changed elements and call updateEditorElement
+    changedElements.forEach((element) => {
+      store.updateEditorElement(element);
+    });
   };
 
   return (
@@ -85,11 +92,11 @@ export const TimeLine = observer(() => {
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={store.editorElements.map((el) => el.id)}
+            items={allElements.map((el) => el.id)}
             strategy={verticalListSortingStrategy}
           >
             <div className="flex flex-col">
-            {store.editorElements.map((element) => (
+            {allElements.map((element) => (
               <SortableTimeFrameView
                 key={element.id}
                 element={element}

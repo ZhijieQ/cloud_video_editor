@@ -117,7 +117,7 @@ const mergeElementUpdate = function (original: EditorElement, from: EditorElemen
   }
 
   const element = removeUndefinedFields(deepCopy(original));
-  const normalChanges = ['placement', 'timeFrame', 'editPersonsId', 'properties'];
+  const normalChanges = ['order', 'placement', 'timeFrame', 'editPersonsId', 'properties'];
   for (const change of normalChanges) {
     if (
       !mergeField(
@@ -232,6 +232,8 @@ const uploadAnimationToFirebase = function (animation: Animation, projectId: str
 };
 
 export {
+  deepCopy,
+  removeUndefinedFields,
   mergeElementUpdate,
   mergeElementDelete,
   addElementToFirestore,

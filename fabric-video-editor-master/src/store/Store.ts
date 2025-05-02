@@ -9,9 +9,9 @@ import { toBlobURL } from '@ffmpeg/util';
 import { getFirestore, collection, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { getFilesFromFolder } from "@/utils/fileUpload";
 import { User } from 'firebase/auth';
-import { mergeElementUpdate, mergeElementDelete, addElementToFirestore, addAnimationToFirestore, uploadElementToFirebase, uploadAnimationToFirebase} from '@/utils/utils';
+import { deepCopy, removeUndefinedFields, mergeElementUpdate, mergeElementDelete, addElementToFirestore, addAnimationToFirestore, uploadElementToFirebase, uploadAnimationToFirebase} from '@/utils/utils';
 import { diff } from 'deep-object-diff';
-
+import { uploadFile } from "@/utils/fileUpload";
 
 export class Store {
   canvas: fabric.Canvas | null
@@ -30,6 +30,7 @@ export class Store {
     to: EditorElement,
     type: 'deleted' | 'updated'
   } };
+  conflit: { [key: string]: EditorElement};
   // pendingMerge: EditorElement | null;
   unsubscribe: () => void;
 
@@ -66,6 +67,7 @@ export class Store {
     this.selectedVideoFormat = 'mp4';
     this.order = 0;
     this.pendingMerge = {};
+    this.conflit = {};
     this.unsubscribe = () => { };
     this.projectId = null;
     this.user = user;
@@ -114,6 +116,19 @@ export class Store {
 
   setVideos(videos: string[]) {
     this.videos = videos;
+  }
+
+  async addVideoResourceFile(file: File) {
+    const fileURL = await uploadFile(file, `projects/${this.projectId}/videoEditor/videos`);
+    this.addVideoResource(fileURL);
+  }
+  async addAudioResourceFile(file: File) {
+    const fileURL = await uploadFile(file, `projects/${this.projectId}/videoEditor/audios`);
+    this.addAudioResource(fileURL);
+  }
+  async addImageResourceFile(file: File) {
+    const fileURL = await uploadFile(file, `projects/${this.projectId}/videoEditor/images`);
+    this.addImageResource(fileURL);
   }
 
   addVideoResource(video: string) {
@@ -377,6 +392,20 @@ export class Store {
             element.editPersonsId.filter((id: string) => id !== this.user!.uid);
             delete this.pendingMerge[this.selectedElement.id];
             this.updateEditorElement(element);
+          }else{
+            const ele = removeUndefinedFields(deepCopy(this.selectedElement));
+            ele.conflitId = this.selectedElement.id;
+            ele.id = getUid();
+            ele.name = `${this.selectedElement.name} (conflit)`;
+            this.conflit[ele.id] = ele;
+
+            // this.editorElements = this.editorElements.map((element) => {
+            //   if (element.id === this.selectedElement?.id) {
+            //     return this.pendingMerge[this.selectedElement.id]?.to;
+            //   }
+            //   return element;
+            // });
+            selectedElement = this.pendingMerge[this.selectedElement.id]?.to;
           }
         }
         this.canvas.discardActiveObject();
@@ -389,8 +418,8 @@ export class Store {
   }
 
   mergeElement(original: EditorElement, from: EditorElement, to: EditorElement, type: 'deleted' | 'updated') {
-    if(original === undefined || from === undefined || to === undefined) {
-      return;
+    if(original === undefined || to === undefined) {
+      return from;
     }
 
     if(type == 'updated'){
@@ -400,20 +429,19 @@ export class Store {
     }
   }
 
-  setEditorElements(editorElements: EditorElement[], reordered: boolean = false) {
-    // TODO: editorElements ordenalo basado en .order
+  setEditorElements(editorElements: EditorElement[]) {
     this.editorElements = editorElements;
     this.updateSelectedElement();
-    if(reordered){
-      editorElements.map((e) => {
-        this.updateEditorElement(e);
-      })
-    }
     this.refreshElements();
     // this.refreshAnimations();
   }
 
   updateEditorElement(editorElement: EditorElement, localChange: boolean = true) {
+    if(this.conflit[editorElement.id] != undefined){
+      this.conflit[editorElement.id] = editorElement;
+      return;
+    }
+
     if(this.pendingMerge[editorElement.id] == undefined) {
       if(!localChange){
         const ele = this.editorElements.find((e) => e.id === editorElement.id);
@@ -459,26 +487,32 @@ export class Store {
     this.refreshAnimations();
   }
 
-  addEditorElement(editorElement: EditorElement, localChange: boolean = true) {
+  async addEditorElement(editorElement: EditorElement, localChange: boolean = true) {
     if(!localChange){
       const ele = this.editorElements.find((e) => e.id === editorElement.id);
       if(ele){
         return;
       }
       this.setEditorElements([...this.editorElements, editorElement]);
-      this.refreshElements();
-      this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
     }else {
       this.setEditorElements([...this.editorElements, editorElement]);
-      this.refreshElements();
-      this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
-      addElementToFirestore(editorElement, this.projectId);
+      await addElementToFirestore(editorElement, this.projectId);
+      const ele = this.editorElements.find((e) => e.id === editorElement.id);
+      ele!.uid = editorElement.uid;
     }
+
+    this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
+    this.refreshElements();
   }
 
   async removeEditorElement(id: string | undefined) {
     if (id === undefined) {
       alert("Element ID is undefined");
+      return;
+    }
+
+    if (this.conflit[id] != undefined) {
+      delete this.conflit[id];
       return;
     }
   
@@ -585,6 +619,7 @@ export class Store {
       {
         id,
         uid: null,
+        conflitId: null,
         name: `Media(video) ${index + 1}`,
         type: "video",
         order: this.editorElements.length,
@@ -624,6 +659,7 @@ export class Store {
     this.addEditorElement({
       id,
       uid: null,
+      conflitId: null,
       name: `Media(image) ${index + 1}`,
       type: "image",
       order: this.editorElements.length,
@@ -663,6 +699,7 @@ export class Store {
       {
         id,
         uid: null,
+        conflitId: null,
         name: `Media(audio) ${index + 1}`,
         type: "audio",
         order: this.editorElements.length,
@@ -701,6 +738,7 @@ export class Store {
       {
         id,
         uid: null,
+        conflitId: null,
         name: `Text ${index + 1}`,
         type: "text",
         order: this.editorElements.length,
@@ -881,8 +919,17 @@ export class Store {
     if (!store.canvas) return;
     const canvas = store.canvas;
     store.canvas.remove(...store.canvas.getObjects());
-    for (let index = 0; index < store.editorElements.length; index++) {
-      const element = store.editorElements[index];
+
+    var allElements = [...store.editorElements, ...Object.values(store.conflit)];
+    allElements = allElements.sort((a, b) => a.order - b.order);
+    for (let index = 0; index < allElements.length; index++) {
+      const element = allElements[index];
+      if (element.fabricObject) {
+        element.fabricObject.on("selected", function (e) {
+          store.setSelectedElement(element)
+        });
+      }
+      
       switch (element.type) {
         case "video": {
           console.log("elementid", element.properties.elementId);
@@ -1071,11 +1118,7 @@ export class Store {
           throw new Error("Not implemented");
         }
       }
-      if (element.fabricObject) {
-        element.fabricObject.on("selected", function (e) {
-          store.setSelectedElement(element);
-        });
-      }
+      
     }
     const selectedEditorElement = store.selectedElement;
     if (selectedEditorElement && selectedEditorElement.fabricObject) {
@@ -1129,6 +1172,7 @@ export class Store {
         const element: EditorElement = {
           uid: change.doc.id,
           id: data.id,
+          conflitId: null,
           name: data.name,
           type: data.type,
           order: data.order,
