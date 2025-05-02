@@ -366,8 +366,8 @@ export class Store {
     }
   }
 
-  async removeAnimation(id: string, projectId: string | null) {
-    if (!projectId) {
+  async removeAnimation(id: string) {
+    if (!this.projectId) {
       console.error("Project ID is null. Cannot upload animation to Firebase.");
       return;
     }
@@ -383,7 +383,7 @@ export class Store {
     }
 
     const db = getFirestore();
-    const docRef = doc(db, `projects/${projectId}/animations`, ele.uid);
+    const docRef = doc(db, `projects/${this.projectId}/animations`, ele.uid);
     try {
       await deleteDoc(docRef);
 
@@ -549,6 +549,24 @@ export class Store {
   
     if (!this.projectId) {
       console.error("Project ID is null. Cannot remove element from Firestore.");
+      return;
+    }
+
+    var hasConflict = false;
+    for(const [key, value] of Object.entries(this.conflit)){
+      if(value.conflitId == id){
+        value.id = elementToRemove.id;
+        value.name = elementToRemove.name;
+        value.editPersonsId = elementToRemove.editPersonsId;
+        value.conflitId = null;
+        this.updateEditorElement(value);
+
+        hasConflict = true;
+        delete this.conflit[key];
+        break;
+      }
+    }
+    if(hasConflict){
       return;
     }
   
@@ -1316,7 +1334,7 @@ export class Store {
           console.log("Modified animation: ", change.doc.data());
         }
         if (change.type === "removed") {
-          this.removeAnimation(data.id, this.projectId);
+          this.removeAnimation(data.id);
           console.log("Removed animation: ", change.doc.data());
         }
       });
