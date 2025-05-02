@@ -114,7 +114,7 @@ async function addAnimationToFirestore(animation: Animation, projectId: string |
       animation.uid = docRef.id;
     } else {
       const docRef = doc(db, `projects/${projectId}/animations`, animation.uid);
-      await setDoc(docRef, animation);
+      await setDoc(docRef, animation, { merge: true });
     }
   } catch (error) {
     console.error('Error adding animation to Firestore:', error);
@@ -138,7 +138,7 @@ function uploadElementToFirebase(editorElement: EditorElement, projectId: string
     const db = getFirestore();
     const docRef = doc(db, `projects/${projectId}/videoEditor`, editorElement.uid);
     const newEle = removeUndefinedFields(deepCopy(editorElement));
-    updateDoc(docRef, newEle)
+    updateDoc(docRef, newEle, { merge: true })
       .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
       .catch((error) => console.error("Error updating document in Firebase:", error));
   } catch (error) {
@@ -146,15 +146,20 @@ function uploadElementToFirebase(editorElement: EditorElement, projectId: string
   }
 }
 
-function uploadAnimationToFirebase(animation: Animation){
+function uploadAnimationToFirebase(animation: Animation, projectId: string | null){
+  if (!projectId) {
+    console.error("Project ID is null. Cannot upload animation to Firebase.");
+    alert("Error: Project ID is missing.");
+    return;
+  }
   if(animation.uid == null){
     console.log("Element UID is null");
     return;
   }
   try {
     const db = getFirestore();
-    const docRef = doc(db, "animations", animation.uid);
-    updateDoc(docRef, animation)
+    const docRef = doc(db, `projects/${projectId}/animations`, animation.uid);
+    updateDoc(docRef, animation as any, { merge: true })
         .then(() => console.log(`Document with UID ${animation.uid} updated successfully`))
         .catch((error) => console.error("Error updating document in Firebase:", error));
   } catch (error) {
@@ -300,7 +305,7 @@ export class Store {
       }
     }
 
-    uploadAnimationToFirebase(animation);
+    uploadAnimationToFirebase(animation, this.projectId);
     const index = this.animations.findIndex((a) => a.id === id);
     this.animations[index] = animation;
     this.refreshAnimations();
@@ -474,7 +479,12 @@ export class Store {
     }
   }
 
-  async removeAnimation(id: string) {
+  async removeAnimation(id: string, projectId: string | null) {
+    if (!projectId) {
+      console.error("Project ID is null. Cannot upload animation to Firebase.");
+      return;
+    }
+  
     if(id === undefined){
       alert("Element ID is undefined");
       return;
@@ -486,7 +496,7 @@ export class Store {
     }
 
     const db = getFirestore();
-    const docRef = doc(db, "animations", ele.uid);
+    const docRef = doc(db, `projects/${projectId}/animations`, ele.uid);
     try {
       await deleteDoc(docRef);
 
@@ -596,7 +606,7 @@ export class Store {
     this.refreshAnimations();
   }
 
-  async addEditorElement(editorElement: EditorElement, localChange: boolean = true) {
+  addEditorElement(editorElement: EditorElement, localChange: boolean = true) {
     if(!localChange){
       const ele = this.editorElements.find((e) => e.id === editorElement.id);
       if(ele){
@@ -609,7 +619,7 @@ export class Store {
       this.setEditorElements([...this.editorElements, editorElement]);
       this.refreshElements();
       this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
-      await addElementToFirestore(editorElement, this.projectId);
+      addElementToFirestore(editorElement, this.projectId);
     }
   }
 
@@ -1333,9 +1343,11 @@ export class Store {
           console.log("New animation: ", change.doc.data());
         }
         if (change.type === "modified") {
+          this.updateAnimation(data.id, data, false);
           console.log("Modified animation: ", change.doc.data());
         }
         if (change.type === "removed") {
+          this.removeAnimation(data.id, this.projectId);
           console.log("Removed animation: ", change.doc.data());
         }
       });
