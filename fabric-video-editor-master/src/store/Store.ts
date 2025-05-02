@@ -163,7 +163,6 @@ export class Store {
     }
     this.images = [...this.images, image];
     if(localChange){
-      debugger
       addFileUrlsToFirestore(image, this.projectId!, 'images');
     }
   }
@@ -418,21 +417,16 @@ export class Store {
           );
           if(element){
             element.editPersonsId.filter((id: string) => id !== this.user!.uid);
-            delete this.pendingMerge[this.selectedElement.id];
-            this.updateEditorElement(element);
+            if(this.pendingMerge[this.selectedElement.id]){
+              delete this.pendingMerge[this.selectedElement.id];
+              this.updateEditorElement(element);
+            }
           }else{
             const ele = removeUndefinedFields(deepCopy(this.selectedElement));
             ele.conflitId = this.selectedElement.id;
             ele.id = getUid();
             ele.name = `${this.selectedElement.name} (conflit)`;
             this.conflit[ele.id] = ele;
-
-            // this.editorElements = this.editorElements.map((element) => {
-            //   if (element.id === this.selectedElement?.id) {
-            //     return this.pendingMerge[this.selectedElement.id]?.to;
-            //   }
-            //   return element;
-            // });
             selectedElement = this.pendingMerge[this.selectedElement.id]?.to;
             refresh = true;
           }
@@ -468,7 +462,6 @@ export class Store {
 
   updateEditorElement(editorElement: EditorElement, localChange: boolean = true) {
     if(this.conflit[editorElement.id] != undefined){
-      debugger
       this.conflit[editorElement.id] = editorElement;
       return;
     }
