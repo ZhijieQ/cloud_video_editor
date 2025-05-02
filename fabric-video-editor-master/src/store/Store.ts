@@ -1250,6 +1250,9 @@ export class Store {
           properties: data.properties,
           editPersonsId: data.editPersonsId,
         };
+        if(data.order >= this.order){
+          this.order = data.order + 1;
+        }
         if (change.type === "added") {
           this.addEditorElement(element, false);
           console.log("New element: ", change.doc.data());
