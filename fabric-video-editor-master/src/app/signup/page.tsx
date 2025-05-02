@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, updateProfile } from "firebase/auth"; //Google OAuth
 import { auth } from "@/utils/firebaseConfig";
-import {randomInt} from "node:crypto";
 
 export default function Signup() {
   const [name, setName] = useState("");
@@ -67,7 +66,7 @@ export default function Signup() {
         // we could set a default or prompt them to add one
         console.log("User doesn't have a display name from Google");
         await updateProfile(user, {
-          displayName: "User" + randomInt(100000,999999)
+          displayName: "UserNoName"
         });
       } else {
         console.log("User's display name from Google:", user.displayName);

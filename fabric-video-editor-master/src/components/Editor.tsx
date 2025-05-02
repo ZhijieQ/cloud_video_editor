@@ -182,7 +182,7 @@ export const Editor = observer((props: EditorProps) => {
       <div className="tile row-span-2 flex flex-col row-start-2">
         <Menu />
       </div>
-      <div className="row-span-2 flex flex-col overflow-scroll row-start-2 bg-black" style={{
+      <div className="row-span-2 z-10 flex flex-col overflow-scroll row-start-2 bg-black" style={{
           scrollbarWidth: "none",
           msOverflowStyle: "none"
         }}>
