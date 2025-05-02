@@ -86,13 +86,6 @@ const MENU_OPTIONS = [
     },
   },
   {
-    name: "Effect",
-    icon: MdMovieFilter,
-    action: (store: Store) => {
-      store.setSelectedMenuOption("Effect");
-    },
-  },
-  {
     name: "Fill",
     icon: MdOutlineFormatColorFill,
     action: (store: Store) => {

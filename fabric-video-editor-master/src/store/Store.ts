@@ -11,7 +11,7 @@ import { getFilesFromFolder } from "@/utils/fileUpload";
 import { User } from 'firebase/auth';
 import { deepCopy, removeUndefinedFields, mergeElementUpdate, mergeElementDelete,
   addElementToFirestore, addAnimationToFirestore, uploadElementToFirebase,
-  addFileUrlsToFirestore, uploadAnimationToFirebase} from '@/utils/utils';
+  addFileUrlsToFirestore, addBackgroundToFirestore, uploadAnimationToFirebase} from '@/utils/utils';
 import { diff } from 'deep-object-diff';
 import { uploadFile } from "@/utils/fileUpload";
 
@@ -106,10 +106,13 @@ export class Store {
     }
   }
 
-  setBackgroundColor(backgroundColor: string) {
+  setBackgroundColor(backgroundColor: string, localChange:boolean = true) {
     this.backgroundColor = backgroundColor;
     if (this.canvas) {
       this.canvas.backgroundColor = backgroundColor;
+    }
+    if(localChange){
+      addBackgroundToFirestore(backgroundColor, this.projectId);
     }
   }
 
@@ -1220,6 +1223,18 @@ export class Store {
 
   
     const db = getFirestore();
+    onSnapshot(collection(db, `projects/${this.projectId}/background`), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const data: string = change.doc.data().background as unknown as string;
+        if (change.type === "added") {
+          this.setBackgroundColor(data, false);
+          console.log("New animation: ", change.doc.data());
+        }else if (change.type === "modified") {
+          this.setBackgroundColor(data, false);
+        }
+      });
+    });
+
     onSnapshot(collection(db, `projects/${this.projectId}/videos`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data: string = change.doc.data().url as unknown as string;

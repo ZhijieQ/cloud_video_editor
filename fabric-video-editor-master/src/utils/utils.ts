@@ -153,6 +153,17 @@ const addFileUrlsToFirestore = async function (url: string, projectId: string, p
   }
 };
 
+const addBackgroundToFirestore = async function (background: string, projectId: string | null) {
+  const db = getFirestore();
+  const collec = collection(db, `projects/${projectId}/background`);
+  try {
+    const docRef = await addDoc(collec, { background });
+    console.log(`Background added successfully with ID: ${docRef.id}`);
+  } catch (error) {
+    console.error('Error adding background to Firestore:', error);
+  }
+};
+
 const addElementToFirestore = async function (editorElement: EditorElement, projectId: string | null) {
   if (!projectId) {
     console.error('Project ID is null. Cannot add element to Firestore.');
@@ -252,5 +263,6 @@ export {
   addAnimationToFirestore,
   uploadElementToFirebase,
   uploadAnimationToFirebase,
+  addBackgroundToFirestore,
   addFileUrlsToFirestore
 };

@@ -111,5 +111,4 @@ export type MenuOption =
   | "Image"
   | "Export"
   | "Animation"
-  | "Effect"
   | "Fill";
