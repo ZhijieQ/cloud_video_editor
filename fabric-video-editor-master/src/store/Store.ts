@@ -11,7 +11,7 @@ import { getFilesFromFolder } from "@/utils/fileUpload";
 import { User } from 'firebase/auth';
 import { deepCopy, removeUndefinedFields, mergeElementUpdate, mergeElementDelete,
   addElementToFirestore, addAnimationToFirestore, uploadElementToFirebase,
-  addFileUrlsToFirestore, addBackgroundToFirestore, uploadAnimationToFirebase} from '@/utils/utils';
+  addFileUrlsToFirestore, addBackgroundToFirestore, addTimesToFirestore, uploadAnimationToFirebase} from '@/utils/utils';
 import { diff } from 'deep-object-diff';
 import { uploadFile } from "@/utils/fileUpload";
 
@@ -432,6 +432,8 @@ export class Store {
             this.conflit[ele.id] = ele;
             selectedElement = this.pendingMerge[this.selectedElement.id]?.to;
             refresh = true;
+
+            alert("There is a conflict with the element. Pls, review the conflict track and delete one of them to sryncronize all data.")
           }
         }
         this.canvas.discardActiveObject();
@@ -590,8 +592,12 @@ export class Store {
     }
   }
 
-  setMaxTime(maxTime: number) {
+  setMaxTime(maxTime: number, localChange: boolean = true) {
     this.maxTime = maxTime;
+
+    if(localChange){
+      addTimesToFirestore(maxTime, this.projectId);
+    }
   }
 
   setPlaying(playing: boolean) {
@@ -1231,6 +1237,18 @@ export class Store {
           console.log("New animation: ", change.doc.data());
         }else if (change.type === "modified") {
           this.setBackgroundColor(data, false);
+        }
+      });
+    });
+
+    onSnapshot(collection(db, `projects/${this.projectId}/times`), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const data: number = change.doc.data().times as unknown as number;
+        if (change.type === "added") {
+          this.setMaxTime(data, false);
+          console.log("New animation: ", change.doc.data());
+        }else if (change.type === "modified") {
+          this.setMaxTime(data, false);
         }
       });
     });
