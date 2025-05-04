@@ -123,7 +123,6 @@ export const TimeFrameView = observer((props: { element: EditorElement, ide: str
       {/* hover tooltip */}
       {showTooltip && element.editPersonsId && element.editPersonsId.length > 0 && (
         <div className="absolute top-full left-0 mt-1 z-50 bg-gray-800 rounded-md shadow-lg p-2 w-64">
-          <div className="text-xs text-white font-medium mb-1">Modified by：</div>
           {lastEditorId && (
             <div className="text-xs text-white mb-2">
               <span className="font-medium">Last Editor：</span>
@@ -131,6 +130,7 @@ export const TimeFrameView = observer((props: { element: EditorElement, ide: str
               {usersInfo[lastEditorId]?.displayName || store.userInfoCache[lastEditorId]?.displayName || `User ${lastEditorId.substring(0, 8)}`}
             </div>
           )}
+          <div className="text-xs text-white font-medium mb-1">Modified by：</div>
           <div className="flex flex-wrap gap-1">
             {element.editPersonsId.map((userId) => {
               // get user info from cache
