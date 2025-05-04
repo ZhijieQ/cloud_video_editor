@@ -14,6 +14,7 @@ import { deepCopy, removeUndefinedFields, mergeElementUpdate, mergeElementDelete
   addFileUrlsToFirestore, addBackgroundToFirestore, addTimesToFirestore, uploadAnimationToFirebase} from '@/utils/utils';
 import { diff } from 'deep-object-diff';
 import { uploadFile } from "@/utils/fileUpload";
+import { UserInfo, saveUserInfo, getUserInfo, getUsersInfo } from '@/services/userService';
 
 export class Store {
   canvas: fabric.Canvas | null
@@ -40,6 +41,8 @@ export class Store {
   projectId: string | null;
   user: User | null;
   onlineUsers: any[];
+
+  userInfoCache: Record<string, UserInfo>;
 
   maxTime: number
   animations: Animation[]
@@ -75,7 +78,12 @@ export class Store {
     this.projectId = null;
     this.user = user;
     this.onlineUsers = [];
+    this.userInfoCache = {};
     makeAutoObservable(this);
+
+    if (user) {
+      saveUserInfo(user);
+    }
   }
 
   // set project ID
@@ -85,6 +93,48 @@ export class Store {
 
   setOnlineUsers(onlineUsers: any[]) {
     this.onlineUsers = onlineUsers;
+
+    onlineUsers.forEach(user => {
+      this.userInfoCache[user.uid] = {
+        uid: user.uid,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        lastActive: user.lastActive
+      };
+    });
+  }
+
+  async getUserInfo(userId: string): Promise<UserInfo | null> {
+    if (this.userInfoCache[userId]) {
+      return this.userInfoCache[userId];
+    }
+
+    try {
+      const userInfo = await getUserInfo(userId);
+      if (userInfo) {
+        this.userInfoCache[userId] = userInfo;
+        return userInfo;
+      }
+    } catch (error) {
+      console.error(`Error getting user info for ${userId}:`, error);
+    }
+
+    return null;
+  }
+
+  async getUsersInfo(userIds: string[]): Promise<void> {
+    const idsToFetch = userIds.filter(id => !this.userInfoCache[id]);
+
+    if (idsToFetch.length === 0) {
+      return;
+    }
+
+    try {
+      const usersInfo = await getUsersInfo(idsToFetch);
+      Object.assign(this.userInfoCache, usersInfo);
+    } catch (error) {
+      console.error('Error getting users info:', error);
+    }
   }
 
   get currentTimeInMs() {
@@ -121,6 +171,13 @@ export class Store {
     const element = this.editorElements[index];
     if (isEditorVideoElement(element) || isEditorImageElement(element)) {
       element.properties.effect = effect;
+
+      if (this.user) {
+        // remove user id first, then add it to the end of the array
+        element.editPersonsId = element.editPersonsId.filter(id => id !== (this.user?.uid || ''));
+        element.editPersonsId.push(this.user.uid);
+        uploadElementToFirebase(element, this.projectId);
+      }
     }
     this.refreshElements();
   }
@@ -374,7 +431,7 @@ export class Store {
       console.error("Project ID is null. Cannot upload animation to Firebase.");
       return;
     }
-  
+
     if(id === undefined){
       alert("Element ID is undefined");
       return;
@@ -404,14 +461,10 @@ export class Store {
     var refresh = false;
     if (this.canvas) {
       if (selectedElement?.fabricObject){
-        if(!selectedElement.editPersonsId.includes(this.user!.uid)){
-          selectedElement.editPersonsId.push(this.user!.uid);
-          uploadElementToFirebase(selectedElement, this.projectId);
-        }
         this.canvas.setActiveObject(selectedElement.fabricObject);
       }
       else{
-        if(this.selectedElement?.editPersonsId.includes(this.user!.uid)){
+        if(this.user && this.selectedElement?.editPersonsId.includes(this.user.uid)){
           const element = this.mergeElement(
             this.pendingMerge[this.selectedElement.id]?.from,
             this.selectedElement,
@@ -419,7 +472,7 @@ export class Store {
             this.pendingMerge[this.selectedElement.id]?.type
           );
           if(element){
-            element.editPersonsId.filter((id: string) => id !== this.user!.uid);
+            element.editPersonsId.filter((id: string) => id !== (this.user?.uid || ''));
             if(this.pendingMerge[this.selectedElement.id]){
               delete this.pendingMerge[this.selectedElement.id];
               this.updateEditorElement(element);
@@ -486,7 +539,14 @@ export class Store {
           return;
         }
       }else{
-        uploadElementToFirebase(editorElement, this.projectId);
+        if (this.user) {
+          // 先移除用户 ID，然后添加到数组末尾，确保其成为最后一个编辑者
+          editorElement.editPersonsId = editorElement.editPersonsId.filter(id => id !== (this.user?.uid || ''));
+          editorElement.editPersonsId.push(this.user.uid);
+          uploadElementToFirebase(editorElement, this.projectId);
+        } else {
+          uploadElementToFirebase(editorElement, this.projectId);
+        }
       }
     }
     this.setEditorElements(this.editorElements.map((element) =>
@@ -508,6 +568,12 @@ export class Store {
         ...editorElement.timeFrame,
         ...timeFrame,
       }
+    }
+
+    if (this.user) {
+      // remove user id from array and add it to the end of the array
+      newEditorElement.editPersonsId = newEditorElement.editPersonsId.filter(id => id !== (this.user?.uid || ''));
+      newEditorElement.editPersonsId.push(this.user.uid);
     }
     this.updateVideoElements();
     this.updateAudioElements();
@@ -543,15 +609,15 @@ export class Store {
       delete this.conflit[id];
       return;
     }
-  
+
     const elementToRemove = this.editorElements.find(
       (editorElement) => editorElement.id === id
     );
-  
+
     if (!elementToRemove || !elementToRemove.uid) {
       return;
     }
-  
+
     if (!this.projectId) {
       console.error("Project ID is null. Cannot remove element from Firestore.");
       return;
@@ -574,12 +640,12 @@ export class Store {
     if(hasConflict){
       return;
     }
-  
+
     const db = getFirestore();
     const docRef = doc(db, `projects/${this.projectId}/videoEditor`, elementToRemove.uid);
     try {
       await deleteDoc(docRef);
-  
+
       this.setEditorElements(
         this.editorElements.filter(
           (editorElement) => editorElement.id !== id
@@ -693,8 +759,7 @@ export class Store {
             type: "none",
           }
         },
-        editPersonsId: [
-        ]
+        editPersonsId: this.user ? [this.user.uid] : []
       },
     );
   }
@@ -733,8 +798,7 @@ export class Store {
           type: "none",
         }
       },
-      editPersonsId: [
-      ]
+      editPersonsId: this.user ? [this.user.uid] : []
     });
   }
 
@@ -770,8 +834,7 @@ export class Store {
           elementId: `audio-${id}`,
           src: audioElement.src,
         },
-        editPersonsId: [
-        ]
+        editPersonsId: this.user ? [this.user.uid] : []
       },
     );
 
@@ -811,8 +874,7 @@ export class Store {
           fontWeight: options.fontWeight,
           splittedTexts: [],
         },
-        editPersonsId: [
-        ]
+        editPersonsId: this.user ? [this.user.uid] : []
       },
     );
   }
@@ -975,8 +1037,8 @@ export class Store {
     allElements = allElements.sort((a, b) => a.order - b.order);
     for (let index = 0; index < allElements.length; index++) {
       const element = allElements[index];
-      
-      
+
+
       switch (element.type) {
         case "video": {
           console.log("elementid", element.properties.elementId);
@@ -1174,7 +1236,7 @@ export class Store {
         });
       }
       if(refresh){
-        break;  
+        break;
       }
     }
 
@@ -1196,7 +1258,7 @@ export class Store {
       console.error("Project ID is null. Cannot sync data.");
       return;
     }
-  
+
     // getFilesFromFolder(`projects/${this.projectId}/videoEditor/images`)
     //   .then((urls) => {
     //     urls.forEach((url) => {
@@ -1206,7 +1268,7 @@ export class Store {
     //   .catch((error) => {
     //     console.error("Error fetching image files:", error);
     //   });
-  
+
     // getFilesFromFolder(`projects/${this.projectId}/videoEditor/videos`)
     //   .then((urls) => {
     //     urls.forEach((url) => {
@@ -1216,7 +1278,7 @@ export class Store {
     //   .catch((error) => {
     //     console.error("Error fetching video files:", error);
     //   });
-  
+
     // getFilesFromFolder(`projects/${this.projectId}/videoEditor/audios`)
     //   .then((urls) => {
     //     urls.forEach((url) => {
@@ -1227,7 +1289,7 @@ export class Store {
     //     console.error("Error fetching audio files:", error);
     //   });
 
-  
+
     const db = getFirestore();
     onSnapshot(collection(db, `projects/${this.projectId}/background`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
@@ -1256,7 +1318,7 @@ export class Store {
     onSnapshot(collection(db, `projects/${this.projectId}/videos`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data: string = change.doc.data().url as unknown as string;
-        
+
         if (change.type === "added") {
           this.addVideoResource(data, false);
           console.log("New animation: ", change.doc.data());
@@ -1267,7 +1329,7 @@ export class Store {
     onSnapshot(collection(db, `projects/${this.projectId}/audios`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data: string = change.doc.data().url as unknown as string;
-        
+
         if (change.type === "added") {
           this.addAudioResource(data, false);
           console.log("New animation: ", change.doc.data());
@@ -1278,7 +1340,7 @@ export class Store {
     onSnapshot(collection(db, `projects/${this.projectId}/images`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data: string = change.doc.data().url as unknown as string;
-        
+
         if (change.type === "added") {
           this.addImageResource(data, false);
           console.log("New animation: ", change.doc.data());
@@ -1350,14 +1412,14 @@ export class Store {
         }
       });
     });
-  
+
     onSnapshot(collection(db, `projects/${this.projectId}/animations`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data: Animation = {
           ...change.doc.data(),
           uid: change.doc.id,
         } as Animation;
-  
+
         if (change.type === "added") {
           this.addAnimation(data, false);
           console.log("New animation: ", change.doc.data());

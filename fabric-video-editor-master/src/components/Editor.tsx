@@ -17,6 +17,7 @@ import { subscribeToOnlineUsers, setUserOnlineStatus } from "@/services/presence
 import { OnlineUserAvatars } from "./chat/OnlineUserAvatars";
 import { UserMenu } from "./common/UserMenu";
 import { ShareProject } from "./common/ShareProject";
+import { saveUserInfo } from "@/services/userService";
 
 interface EditorWithStoreProps {
   projectId: string;
@@ -71,13 +72,16 @@ export const Editor = observer((props: EditorProps) => {
   useEffect(() => {
     if (!currentUser) return;
 
+    // 保存用户信息到 Firestore
+    saveUserInfo(currentUser);
+
     // Set user online status
     const cleanupPresence = setUserOnlineStatus(projectId, currentUser.uid, {
       displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
       photoURL: getProfilePhotoURL(),
       lastActive: Date.now()
     });
-    
+
     // Subscribe to online users
     const unsubscribeUsers = subscribeToOnlineUsers(
       projectId,
