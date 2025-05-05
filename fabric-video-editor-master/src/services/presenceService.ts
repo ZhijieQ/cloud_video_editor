@@ -31,6 +31,7 @@ export const setUserOnlineStatus = (
   });
 
   onDisconnect(userStatusRef).remove();
+  //TODO:
 
   return () => {
     set(userStatusRef, null);
