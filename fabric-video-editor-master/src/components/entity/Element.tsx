@@ -14,13 +14,15 @@ export const Element = observer((props: ElementProps) => {
   const { element } = props;
   const Icon = element.type === "video" ? MdMovie : MdOutlineTextFields;
   const isSelected = store.selectedElement?.id === element.id;
+
+  // We only want to show editor colors in the timeline, not in the elements panel
   const bgColor = isSelected ? "rgba(0, 160, 245, 0.1)" : "";
   return (
     <div
       style={{
-        backgroundColor: bgColor,
+        backgroundColor: bgColor
       }}
-      className={`flex mx-2 my-1 py-2 px-1 flex-row justify-start items-center ${bgColor}`}
+      className={`flex mx-2 my-1 py-2 px-1 flex-row justify-start items-center`}
       key={element.id}
       onClick={() => {
         store.setSelectedElement(element);

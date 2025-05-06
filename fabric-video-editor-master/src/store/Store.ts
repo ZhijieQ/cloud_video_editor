@@ -14,6 +14,8 @@ import { deepCopy, removeUndefinedFields, mergeElementUpdate, mergeElementDelete
   addFileUrlsToFirestore, addBackgroundToFirestore, addTimesToFirestore, uploadAnimationToFirebase} from '@/utils/utils';
 import { diff } from 'deep-object-diff';
 import { uploadFile } from "@/utils/fileUpload";
+import { getUserBgColor } from '@/utils/userColors';
+import { getTailwindColorValue } from '@/utils/colorUtils';
 
 export class Store {
   canvas: fabric.Canvas | null
@@ -39,7 +41,7 @@ export class Store {
   // Project ID to separate different projects
   projectId: string | null;
   user: User | null;
-  onlineUsers: any[];
+  onlineUsers: Array<{uid: string; [key: string]: any}>;
 
   maxTime: number
   animations: Animation[]
@@ -85,6 +87,8 @@ export class Store {
 
   setOnlineUsers(onlineUsers: any[]) {
     this.onlineUsers = onlineUsers;
+    // Refresh elements to update colors based on online users
+    this.refreshElements();
   }
 
   get currentTimeInMs() {
@@ -374,7 +378,7 @@ export class Store {
       console.error("Project ID is null. Cannot upload animation to Firebase.");
       return;
     }
-  
+
     if(id === undefined){
       alert("Element ID is undefined");
       return;
@@ -407,6 +411,8 @@ export class Store {
         if(!selectedElement.editPersonsId.includes(this.user!.uid)){
           selectedElement.editPersonsId.push(this.user!.uid);
           uploadElementToFirebase(selectedElement, this.projectId);
+          // Refresh to update the element's appearance with the editor's color
+          this.refreshElements();
         }
         this.canvas.setActiveObject(selectedElement.fabricObject);
       }
@@ -419,10 +425,13 @@ export class Store {
             this.pendingMerge[this.selectedElement.id]?.type
           );
           if(element){
-            element.editPersonsId.filter((id: string) => id !== this.user!.uid);
+            // Remove current user from editors
+            element.editPersonsId = element.editPersonsId.filter((id: string) => id !== this.user!.uid);
             if(this.pendingMerge[this.selectedElement.id]){
               delete this.pendingMerge[this.selectedElement.id];
               this.updateEditorElement(element);
+              // Refresh to update the element's appearance (remove editor color)
+              this.refreshElements();
             }
           }else{
             const ele = removeUndefinedFields(deepCopy(this.selectedElement));
@@ -492,7 +501,8 @@ export class Store {
     this.setEditorElements(this.editorElements.map((element) =>
       element.id === editorElement.id ? editorElement : element
     ));
-    //this.refreshElements();
+    // Always refresh elements to update colors based on editors
+    this.refreshElements();
   }
 
   updateEditorElementTimeFrame(editorElement: EditorElement, timeFrame: Partial<TimeFrame>) {
@@ -543,15 +553,15 @@ export class Store {
       delete this.conflit[id];
       return;
     }
-  
+
     const elementToRemove = this.editorElements.find(
       (editorElement) => editorElement.id === id
     );
-  
+
     if (!elementToRemove || !elementToRemove.uid) {
       return;
     }
-  
+
     if (!this.projectId) {
       console.error("Project ID is null. Cannot remove element from Firestore.");
       return;
@@ -574,12 +584,12 @@ export class Store {
     if(hasConflict){
       return;
     }
-  
+
     const db = getFirestore();
     const docRef = doc(db, `projects/${this.projectId}/videoEditor`, elementToRemove.uid);
     try {
       await deleteDoc(docRef);
-  
+
       this.setEditorElements(
         this.editorElements.filter(
           (editorElement) => editorElement.id !== id
@@ -964,6 +974,27 @@ export class Store {
     })
   }
 
+  // Helper function to check if a user is online and get their color
+  getOnlineEditorColor(element: EditorElement): string | null {
+    // If no editors, return null
+    if (!element.editPersonsId || element.editPersonsId.length === 0) {
+      return null;
+    }
+
+    // Check if any of the editors are online
+    for (const editorId of element.editPersonsId) {
+      const onlineUser = this.onlineUsers.find(user => user.uid === editorId);
+      if (onlineUser) {
+        // User is online, return their color
+        const bgClass = getUserBgColor(editorId);
+        return getTailwindColorValue(bgClass);
+      }
+    }
+
+    // No online editors found
+    return null;
+  }
+
   refreshElements() {
     var refresh = false;
     const store = this;
@@ -973,10 +1004,14 @@ export class Store {
 
     var allElements = [...store.editorElements, ...Object.values(store.conflit)];
     allElements = allElements.sort((a, b) => a.order - b.order);
+
+
     for (let index = 0; index < allElements.length; index++) {
       const element = allElements[index];
-      
-      
+
+      // Check if element is being edited by an online user
+      const editorColor = this.getOnlineEditorColor(element);
+
       switch (element.type) {
         case "video": {
           console.log("elementid", element.properties.elementId);
@@ -990,6 +1025,8 @@ export class Store {
           // if (element.properties.effect?.type === "blackAndWhite") {
           //   filters.push(new fabric.Image.filters.Grayscale());
           // }
+          // No background rectangle needed in canvas
+
           const videoObject = new fabric.CoverVideo(videoElement, {
             name: element.id,
             left: element.placement.x,
@@ -1034,6 +1071,8 @@ export class Store {
               scaleX: 1,
               scaleY: 1,
             };
+            // No background rectangle to update
+
             const newElement = {
               ...element,
               placement: newPlacement,
@@ -1053,6 +1092,8 @@ export class Store {
           // if (element.properties.effect?.type === "blackAndWhite") {
           //   filters.push(new fabric.Image.filters.Grayscale());
           // }
+          // No background rectangle needed in canvas
+
           const imageObject = new fabric.CoverImage(imageElement, {
             name: element.id,
             left: element.placement.x,
@@ -1103,6 +1144,8 @@ export class Store {
               scaleX: fianlScale,
               scaleY: fianlScale,
             };
+            // No background rectangle to update
+
             const newElement = {
               ...element,
               placement: newPlacement,
@@ -1115,6 +1158,8 @@ export class Store {
           break;
         }
         case "text": {
+          // No background rectangle needed in canvas
+
           const textObject = new fabric.Textbox(element.properties.text, {
             name: element.id,
             left: element.placement.x,
@@ -1148,6 +1193,9 @@ export class Store {
               scaleX: target.scaleX ?? placement.scaleX,
               scaleY: target.scaleY ?? placement.scaleY,
             };
+
+            // No background rectangle to update
+
             const newElement = {
               ...element,
               placement: newPlacement,
@@ -1174,7 +1222,7 @@ export class Store {
         });
       }
       if(refresh){
-        break;  
+        break;
       }
     }
 
@@ -1196,7 +1244,7 @@ export class Store {
       console.error("Project ID is null. Cannot sync data.");
       return;
     }
-  
+
     // getFilesFromFolder(`projects/${this.projectId}/videoEditor/images`)
     //   .then((urls) => {
     //     urls.forEach((url) => {
@@ -1206,7 +1254,7 @@ export class Store {
     //   .catch((error) => {
     //     console.error("Error fetching image files:", error);
     //   });
-  
+
     // getFilesFromFolder(`projects/${this.projectId}/videoEditor/videos`)
     //   .then((urls) => {
     //     urls.forEach((url) => {
@@ -1216,7 +1264,7 @@ export class Store {
     //   .catch((error) => {
     //     console.error("Error fetching video files:", error);
     //   });
-  
+
     // getFilesFromFolder(`projects/${this.projectId}/videoEditor/audios`)
     //   .then((urls) => {
     //     urls.forEach((url) => {
@@ -1227,7 +1275,7 @@ export class Store {
     //     console.error("Error fetching audio files:", error);
     //   });
 
-  
+
     const db = getFirestore();
     onSnapshot(collection(db, `projects/${this.projectId}/background`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
@@ -1256,7 +1304,7 @@ export class Store {
     onSnapshot(collection(db, `projects/${this.projectId}/videos`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data: string = change.doc.data().url as unknown as string;
-        
+
         if (change.type === "added") {
           this.addVideoResource(data, false);
           console.log("New animation: ", change.doc.data());
@@ -1267,7 +1315,7 @@ export class Store {
     onSnapshot(collection(db, `projects/${this.projectId}/audios`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data: string = change.doc.data().url as unknown as string;
-        
+
         if (change.type === "added") {
           this.addAudioResource(data, false);
           console.log("New animation: ", change.doc.data());
@@ -1278,7 +1326,7 @@ export class Store {
     onSnapshot(collection(db, `projects/${this.projectId}/images`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data: string = change.doc.data().url as unknown as string;
-        
+
         if (change.type === "added") {
           this.addImageResource(data, false);
           console.log("New animation: ", change.doc.data());
@@ -1350,14 +1398,14 @@ export class Store {
         }
       });
     });
-  
+
     onSnapshot(collection(db, `projects/${this.projectId}/animations`), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data: Animation = {
           ...change.doc.data(),
           uid: change.doc.id,
         } as Animation;
-  
+
         if (change.type === "added") {
           this.addAnimation(data, false);
           console.log("New animation: ", change.doc.data());
