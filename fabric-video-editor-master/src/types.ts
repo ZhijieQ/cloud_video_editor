@@ -11,7 +11,6 @@ export type EditorElementBase<T extends string, P> = {
   placement: Placement;
   timeFrame: TimeFrame;
   properties: P;          // pending, audio y video y image es parecido.
-  editPersonsId: string[];// pending
 };
 export type VideoEditorElement = EditorElementBase<
   "video",

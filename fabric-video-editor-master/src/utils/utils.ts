@@ -117,7 +117,7 @@ const mergeElementUpdate = function (original: EditorElement, from: EditorElemen
   }
 
   const element = removeUndefinedFields(deepCopy(original));
-  const normalChanges = ['order', 'placement', 'timeFrame', 'editPersonsId', 'properties'];
+  const normalChanges = ['order', 'placement', 'timeFrame', 'properties'];
   for (const change of normalChanges) {
     if (
       !mergeField(
@@ -246,7 +246,7 @@ const uploadElementToFirebase = function (editorElement: EditorElement, projectI
     const db = getFirestore();
     const docRef = doc(db, `projects/${projectId}/videoEditor`, editorElement.uid);
     const newEle = removeUndefinedFields(deepCopy(editorElement));
-    updateDoc(docRef, newEle, { merge: true })
+    updateDoc(docRef, newEle)
       .then(() => console.log(`Document with UID ${editorElement.uid} updated successfully`))
       .catch((error) => console.error('Error updating document in Firebase:', error));
   } catch (error) {

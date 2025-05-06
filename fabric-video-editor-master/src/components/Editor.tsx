@@ -95,7 +95,7 @@ export const Editor = observer((props: EditorProps) => {
         photoURL: getProfilePhotoURL(),
         lastActive: Date.now()
       });
-    }, 5000); // Update every 5 seconds
+    }, 60000); // Update every 60 seconds
 
     return () => {
       unsubscribeUsers();

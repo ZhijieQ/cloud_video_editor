@@ -408,16 +408,10 @@ export class Store {
     var refresh = false;
     if (this.canvas) {
       if (selectedElement?.fabricObject){
-        if(!selectedElement.editPersonsId.includes(this.user!.uid)){
-          selectedElement.editPersonsId.push(this.user!.uid);
-          uploadElementToFirebase(selectedElement, this.projectId);
-          // Refresh to update the element's appearance with the editor's color
-          this.refreshElements();
-        }
         this.canvas.setActiveObject(selectedElement.fabricObject);
       }
       else{
-        if(this.selectedElement?.editPersonsId.includes(this.user!.uid)){
+        if(this.selectedElement != null){
           const element = this.mergeElement(
             this.pendingMerge[this.selectedElement.id]?.from,
             this.selectedElement,
@@ -425,8 +419,6 @@ export class Store {
             this.pendingMerge[this.selectedElement.id]?.type
           );
           if(element){
-            // Remove current user from editors
-            element.editPersonsId = element.editPersonsId.filter((id: string) => id !== this.user!.uid);
             if(this.pendingMerge[this.selectedElement.id]){
               delete this.pendingMerge[this.selectedElement.id];
               this.updateEditorElement(element);
@@ -572,7 +564,6 @@ export class Store {
       if(value.conflitId == id){
         value.id = elementToRemove.id;
         value.name = elementToRemove.name;
-        value.editPersonsId = elementToRemove.editPersonsId;
         value.conflitId = null;
         this.updateEditorElement(value);
 
@@ -703,8 +694,6 @@ export class Store {
             type: "none",
           }
         },
-        editPersonsId: [
-        ]
       },
     );
   }
@@ -743,8 +732,6 @@ export class Store {
           type: "none",
         }
       },
-      editPersonsId: [
-      ]
     });
   }
 
@@ -780,8 +767,6 @@ export class Store {
           elementId: `audio-${id}`,
           src: audioElement.src,
         },
-        editPersonsId: [
-        ]
       },
     );
 
@@ -821,8 +806,6 @@ export class Store {
           fontWeight: options.fontWeight,
           splittedTexts: [],
         },
-        editPersonsId: [
-        ]
       },
     );
   }
@@ -974,27 +957,6 @@ export class Store {
     })
   }
 
-  // Helper function to check if a user is online and get their color
-  getOnlineEditorColor(element: EditorElement): string | null {
-    // If no editors, return null
-    if (!element.editPersonsId || element.editPersonsId.length === 0) {
-      return null;
-    }
-
-    // Check if any of the editors are online
-    for (const editorId of element.editPersonsId) {
-      const onlineUser = this.onlineUsers.find(user => user.uid === editorId);
-      if (onlineUser) {
-        // User is online, return their color
-        const bgClass = getUserBgColor(editorId);
-        return getTailwindColorValue(bgClass);
-      }
-    }
-
-    // No online editors found
-    return null;
-  }
-
   refreshElements() {
     var refresh = false;
     const store = this;
@@ -1008,9 +970,6 @@ export class Store {
 
     for (let index = 0; index < allElements.length; index++) {
       const element = allElements[index];
-
-      // Check if element is being edited by an online user
-      const editorColor = this.getOnlineEditorColor(element);
 
       switch (element.type) {
         case "video": {
@@ -1226,10 +1185,10 @@ export class Store {
       }
     }
 
-    // if(refresh){
-    //   this.refreshElements()
-    //   return;
-    // }
+    if(refresh){
+      this.refreshElements();
+      return;
+    }
     const selectedEditorElement = store.selectedElement;
     if (selectedEditorElement && selectedEditorElement.fabricObject) {
       canvas.setActiveObject(selectedEditorElement.fabricObject);
@@ -1342,7 +1301,6 @@ export class Store {
           placement: data.placement,
           timeFrame: data.timeFrame,
           properties: data.properties,
-          editPersonsId: data.editPersonsId,
         };
         if(data.order >= this.order){
           this.order = data.order + 1;
