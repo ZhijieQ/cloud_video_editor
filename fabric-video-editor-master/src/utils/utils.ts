@@ -154,24 +154,34 @@ const addFileUrlsToFirestore = async function (url: string, projectId: string, p
 };
 
 const addBackgroundToFirestore = async function (background: string, projectId: string | null) {
+  if (!projectId) {
+    console.error('Project ID is null. Cannot update background in Firestore.');
+    return;
+  }
+
   const db = getFirestore();
-  const collec = collection(db, `projects/${projectId}/background`);
+  const projectDocRef = doc(db, `projects/${projectId}`);
   try {
-    const docRef = await addDoc(collec, { background });
-    console.log(`Background added successfully with ID: ${docRef.id}`);
+    await updateDoc(projectDocRef, { background });
+    console.log('Background updated successfully.');
   } catch (error) {
-    console.error('Error adding background to Firestore:', error);
+    console.error('Error updating background in Firestore:', error);
   }
 };
 
 const addTimesToFirestore = async function (times: number, projectId: string | null) {
+  if (!projectId) {
+    console.error('Project ID is null. Cannot update times in Firestore.');
+    return;
+  }
+
   const db = getFirestore();
-  const collec = collection(db, `projects/${projectId}/times`);
+  const projectDocRef = doc(db, `projects/${projectId}`);
   try {
-    const docRef = await addDoc(collec, { times });
-    console.log(`Times added successfully with ID: ${docRef.id}`);
+    await updateDoc(projectDocRef, { times });
+    console.log('Times updated successfully.');
   } catch (error) {
-    console.error('Error adding times to Firestore:', error);
+    console.error('Error updating times in Firestore:', error);
   }
 };
 

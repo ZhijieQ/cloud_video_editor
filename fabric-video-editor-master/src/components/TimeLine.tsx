@@ -20,6 +20,7 @@ import {
   arrayMove
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { EditorElement } from "@/types";
 
 const SortableTimeFrameView = ({ element }: { element: any }) => {
   const {
@@ -57,30 +58,48 @@ export const TimeLine = observer(() => {
   const store = React.useContext(StoreContext);
   const sensors = useSensors(useSensor(PointerSensor));
   var allElements = [...store.editorElements, ...Object.values(store.conflit)].sort((a, b) => a.order - b.order);
-
   const percentOfCurrentTime = (store.currentTimeInMs / store.maxTime) * 100;
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = store.editorElements.findIndex((el) => el.id === active.id);
-    const newIndex = store.editorElements.findIndex((el) => el.id === over.id);
+    var oldIndex = store.editorElements.find((el) => el.id ===  active.id)!.order;
+    var newIndex = store.editorElements.find((el) => el.id === over.id)!.order;
 
-    const reordered = arrayMove(store.editorElements.slice(), oldIndex, newIndex);
-    // Update the order attribute and collect changed elements
-    const changedElements = reordered.reduce((changed, el, idx) => {
-      if (el.order !== idx) {
+    // if(Math.abs(oldIndex - newIndex) > 1){
+    //   const tmp = oldIndex;
+    //   oldIndex = newIndex;
+    //   newIndex = tmp;
+    // }
+    const elements = store.editorElements.sort((a, b) => a.order - b.order);
+    const oldEle = popElementByIndex(elements, oldIndex);
+    const reordered = insertElementAtIndex(elements, newIndex, oldEle!);
+    const changed:EditorElement[] = [];
+    reordered.forEach((el, idx) => {
+      if (el.order != idx) {
         changed.push({ ...el, order: idx });
       }
-      return changed;
-    }, [] as typeof store.editorElements);
+    });
     
     // Iterate through changed elements and call updateEditorElement
-    changedElements.forEach((element) => {
+    changed.forEach((element) => {
       store.updateEditorElement(element);
     });
   };
+
+  function popElementByIndex(arr: EditorElement[], index: number) {
+    if (index >= 0 && index < arr.length) {
+      return arr.splice(index, 1)[0]; // Remove 1 element at the given index and return the removed element
+    } else {
+      return undefined; // Or throw an error, depending on your preference for out-of-bounds indices
+    }
+  }
+
+  function insertElementAtIndex(arr: EditorElement[], index: number, element: EditorElement) {
+    arr.splice(index, 0, element);
+    return arr; // Returns the modified array for convenience
+  }
 
   return (
     <div className="flex flex-col">

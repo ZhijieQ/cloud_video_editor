@@ -530,7 +530,7 @@ export class Store {
     }
 
     this.setSelectedElement(this.editorElements[this.editorElements.length - 1]);
-    this.refreshElements();
+    // this.refreshElements();
   }
 
   async removeEditorElement(id: string | undefined) {
@@ -1178,10 +1178,10 @@ export class Store {
       }
     }
 
-    if(refresh){
-      this.refreshElements()
-      return;
-    }
+    // if(refresh){
+    //   this.refreshElements()
+    //   return;
+    // }
     const selectedEditorElement = store.selectedElement;
     if (selectedEditorElement && selectedEditorElement.fabricObject) {
       canvas.setActiveObject(selectedEditorElement.fabricObject);
@@ -1229,28 +1229,23 @@ export class Store {
 
   
     const db = getFirestore();
-    onSnapshot(collection(db, `projects/${this.projectId}/background`), (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        const data: string = change.doc.data().background as unknown as string;
-        if (change.type === "added") {
-          this.setBackgroundColor(data, false);
-          console.log("New animation: ", change.doc.data());
-        }else if (change.type === "modified") {
-          this.setBackgroundColor(data, false);
+    const projectDocRef = doc(db, `projects/${this.projectId}`);
+    onSnapshot(projectDocRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const data = docSnapshot.data();
+        
+        if (data.background !== undefined) {
+          this.setBackgroundColor(data.background, false);
+          console.log("Background updated: ", data.background);
         }
-      });
-    });
 
-    onSnapshot(collection(db, `projects/${this.projectId}/times`), (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        const data: number = change.doc.data().times as unknown as number;
-        if (change.type === "added") {
-          this.setMaxTime(data, false);
-          console.log("New animation: ", change.doc.data());
-        }else if (change.type === "modified") {
-          this.setMaxTime(data, false);
+        if (data.times !== undefined) {
+          this.setMaxTime(data.times, false);
+          console.log("Times updated: ", data.times);
         }
-      });
+      } else {
+        console.error("Project document does not exist.");
+      }
     });
 
     onSnapshot(collection(db, `projects/${this.projectId}/videos`), (snapshot) => {
