@@ -2,7 +2,11 @@ import { MenuOption, EditorElement, Animation, TimeFrame, VideoEditorElement, Au
 import { diff, addedDiff, deletedDiff, updatedDiff, detailedDiff } from 'deep-object-diff';
 import { getFirestore, collection, getDocs, setDoc, addDoc, deleteDoc, doc, onSnapshot, updateDoc, query, where, DocumentChange, QuerySnapshot } from 'firebase/firestore';
 
-
+/**
+ * Creates a deep copy of an EditorElement while excluding certain fields like `fabricObject` and `imageObject`.
+ * @param element The EditorElement to copy.
+ * @returns A deep copy of the EditorElement.
+ */
 function deepCopy(element: EditorElement): EditorElement {
   switch (element.type) {
     case "video":
@@ -71,6 +75,16 @@ function removeUndefinedFields(obj: any): any {
   return obj; // Return primitive values as-is
 }
 
+/**
+ * Merges a specific field of an EditorElement from two sources (`from` and `to`) into the target element.
+ * @param element The target EditorElement.
+ * @param from The source EditorElement to merge from.
+ * @param to The source EditorElement to merge to.
+ * @param fieldName The name of the field to merge.
+ * @param diffFrom The differences between the original and `from`.
+ * @param diffTo The differences between the original and `to`.
+ * @returns True if the merge was successful, false otherwise.
+ */
 const mergeField = function (
   element: EditorElement,
   from: EditorElement,
@@ -105,6 +119,13 @@ const mergeField = function (
   return true;
 };
 
+/**
+ * Merges updates to an EditorElement from two sources (`from` and `to`) into a new element.
+ * @param original The original EditorElement.
+ * @param from The first updated EditorElement.
+ * @param to The second updated EditorElement.
+ * @returns The merged EditorElement or null if conflicts exist.
+ */
 const mergeElementUpdate = function (original: EditorElement, from: EditorElement, to: EditorElement) {
   const diffFrom: Record<string, any> = diff(original, from);
   const diffTo: Record<string, any> = diff(original, to);
@@ -135,11 +156,25 @@ const mergeElementUpdate = function (original: EditorElement, from: EditorElemen
   return element;
 };
 
+/**
+ * Handles the deletion of an EditorElement by adding the `to` element to Firestore.
+ * @param original The original EditorElement.
+ * @param from The first updated EditorElement.
+ * @param to The second updated EditorElement.
+ * @param projectId The project ID.
+ * @returns The `to` element.
+ */
 const mergeElementDelete = function (original: EditorElement, from: EditorElement, to: EditorElement, projectId: string | null) {
   addElementToFirestore(to, projectId);
   return to;
 };
 
+/**
+ * Adds a file URL to Firestore under a specific project and path.
+ * @param url The file URL to add.
+ * @param projectId The project ID.
+ * @param path The Firestore path to add the URL to.
+ */
 const addFileUrlsToFirestore = async function (url: string, projectId: string, path: string) {
   const db = getFirestore();
   const collec = collection(db, `projects/${projectId}/${path}`);
@@ -152,6 +187,11 @@ const addFileUrlsToFirestore = async function (url: string, projectId: string, p
   }
 };
 
+/**
+ * Updates the background field of a project in Firestore.
+ * @param background The background value to set.
+ * @param projectId The project ID.
+ */
 const addBackgroundToFirestore = async function (background: string, projectId: string | null) {
   if (!projectId) {
     console.error('Project ID is null. Cannot update background in Firestore.');
@@ -168,6 +208,11 @@ const addBackgroundToFirestore = async function (background: string, projectId: 
   }
 };
 
+/**
+ * Updates the times field of a project in Firestore.
+ * @param times The times value to set.
+ * @param projectId The project ID.
+ */
 const addTimesToFirestore = async function (times: number, projectId: string | null) {
   if (!projectId) {
     console.error('Project ID is null. Cannot update times in Firestore.');
@@ -184,6 +229,11 @@ const addTimesToFirestore = async function (times: number, projectId: string | n
   }
 };
 
+/**
+ * Adds or updates an EditorElement in Firestore under a specific project.
+ * @param editorElement The EditorElement to add or update.
+ * @param projectId The project ID.
+ */
 const addElementToFirestore = async function (editorElement: EditorElement, projectId: string | null) {
   if (!projectId) {
     console.error('Project ID is null. Cannot add element to Firestore.');
@@ -207,6 +257,11 @@ const addElementToFirestore = async function (editorElement: EditorElement, proj
   }
 };
 
+/**
+ * Adds or updates an Animation in Firestore under a specific project.
+ * @param animation The Animation to add or update.
+ * @param projectId The project ID.
+ */
 const addAnimationToFirestore = async function (animation: Animation, projectId: string | null) {
   if (!projectId) {
     console.error('Project ID is null. Cannot add animation to Firestore.');
@@ -230,6 +285,11 @@ const addAnimationToFirestore = async function (animation: Animation, projectId:
   }
 };
 
+/**
+ * Uploads an updated EditorElement to Firestore.
+ * @param editorElement The EditorElement to upload.
+ * @param projectId The project ID.
+ */
 const uploadElementToFirebase = function (editorElement: EditorElement, projectId: string | null) {
   if (!projectId) {
     console.error('Project ID is null. Cannot upload element to Firebase.');
@@ -253,6 +313,11 @@ const uploadElementToFirebase = function (editorElement: EditorElement, projectI
   }
 };
 
+/**
+ * Uploads an updated Animation to Firestore.
+ * @param animation The Animation to upload.
+ * @param projectId The project ID.
+ */
 const uploadAnimationToFirebase = function (animation: Animation, projectId: string | null) {
   if (!projectId) {
     console.error('Project ID is null. Cannot upload animation to Firebase.');
