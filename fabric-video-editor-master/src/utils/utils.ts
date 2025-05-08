@@ -95,7 +95,6 @@ const mergeField = function (
         }
       }
     } else {
-      // TODO: handle diff problem.
       return false;
     }
   } else if (fieldName in diffFrom) {

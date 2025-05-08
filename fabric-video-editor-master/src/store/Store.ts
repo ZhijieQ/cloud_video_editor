@@ -422,8 +422,6 @@ export class Store {
             if(this.pendingMerge[this.selectedElement.id]){
               delete this.pendingMerge[this.selectedElement.id];
               this.updateEditorElement(element);
-              // Refresh to update the element's appearance (remove editor color)
-              this.refreshElements();
             }
           }else{
             const ele = removeUndefinedFields(deepCopy(this.selectedElement));
@@ -493,8 +491,6 @@ export class Store {
     this.setEditorElements(this.editorElements.map((element) =>
       element.id === editorElement.id ? editorElement : element
     ));
-    // Always refresh elements to update colors based on editors
-    this.refreshElements();
   }
 
   updateEditorElementTimeFrame(editorElement: EditorElement, timeFrame: Partial<TimeFrame>) {
@@ -1309,7 +1305,7 @@ export class Store {
           this.addEditorElement(element, false);
           console.log("New element: ", change.doc.data());
         }
-        if (change.type === "modified") {
+        else if (change.type === "modified") {
           if (this.selectedElement?.id === element.id) {
             const dif = diff(this.selectedElement, element);
             if ("fabricObject" in dif) {
@@ -1333,7 +1329,7 @@ export class Store {
             console.log("Modified element: ", change.doc.data());
           }
         }
-        if (change.type === "removed") {
+        else if (change.type === "removed") {
           if (this.selectedElement?.id === element.id) {
             if (this.pendingMerge[element.id] == undefined) {
               this.pendingMerge[element.id] = {
@@ -1349,6 +1345,7 @@ export class Store {
             this.removeEditorElement(change.doc.data().id);
           }
         }
+        this.refreshElements();
       });
     });
 

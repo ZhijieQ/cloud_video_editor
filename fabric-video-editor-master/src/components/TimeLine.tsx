@@ -67,11 +67,6 @@ export const TimeLine = observer(() => {
     var oldIndex = store.editorElements.find((el) => el.id ===  active.id)!.order;
     var newIndex = store.editorElements.find((el) => el.id === over.id)!.order;
 
-    // if(Math.abs(oldIndex - newIndex) > 1){
-    //   const tmp = oldIndex;
-    //   oldIndex = newIndex;
-    //   newIndex = tmp;
-    // }
     const elements = store.editorElements.sort((a, b) => a.order - b.order);
     const oldEle = popElementByIndex(elements, oldIndex);
     const reordered = insertElementAtIndex(elements, newIndex, oldEle!);
