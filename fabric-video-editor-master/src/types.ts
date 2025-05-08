@@ -7,10 +7,10 @@ export type EditorElementBase<T extends string, P> = {
   fabricObject?: fabric.Object;
   name: string;
   readonly type: T;
-  order: number;          // pending
+  order: number;
   placement: Placement;
   timeFrame: TimeFrame;
-  properties: P;          // pending, audio y video y image es parecido.
+  properties: P;
 };
 export type VideoEditorElement = EditorElementBase<
   "video",
